@@ -1,104 +1,98 @@
-use eframe::{egui, glow};
-use std::sync::Arc;
-use eframe::egui_glow::Painter;
-use glow::{NativeProgram, NativeVertexArray};
-use crate::renderer::SimpleOpenGLApp;
+use cgmath::Point3;
+use eframe::{
+    egui,
+    egui_wgpu::self,
+};
+use crate::camera::{Camera, CameraMovement};
+use crate::render::shapes::cube::{CubeCallback, CubeRenderResources};
+use crate::render::shapes::pyramid::{PyramidCallback, PyramidRenderResources};
 
-// Application that integrates the renderer with egui
-pub struct OpenGLApp {
-    renderer: SimpleOpenGLApp,
+pub struct Custom3d {
+    camera: Camera,
 }
 
-impl OpenGLApp {
-    pub fn new(gl_context: Arc<glow::Context>) -> Self {
-        Self {
-            renderer: SimpleOpenGLApp::new(gl_context),
-        }
-    }
+impl Custom3d {
+    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
+        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
 
-    unsafe fn initialize_gl(painter: &Painter, program: NativeProgram, rotation: f32, vertex_array: NativeVertexArray) {
-        let gl = painter.gl();
-        
-        use glow::HasContext as _;
-        
-        // Set up OpenGL state for rendering
-        gl.enable(glow::DEPTH_TEST);
-        gl.depth_func(glow::LESS);
-        gl.clear_color(0.1, 0.1, 0.1, 1.0);
-        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+        let device = &wgpu_render_state.device;
 
-        // Use the program
-        gl.use_program(Some(program));
+        wgpu_render_state
+            .renderer
+            .write()
+            .callback_resources
+            .insert(CubeRenderResources::new(
+                device,
+                wgpu_render_state,
 
-        // Set the rotation uniform
-        let rotation_loc = gl.get_uniform_location(program, "u_rotation").unwrap();
-        gl.uniform_1_f32(Some(&rotation_loc), rotation);
+            ));
+        wgpu_render_state
+            .renderer
+            .write()
+            .callback_resources
+            .insert(PyramidRenderResources::new(
+                device,
+                wgpu_render_state,
+            ));
 
-        // Bind and draw the triangle
-        gl.bind_vertex_array(Some(vertex_array));
-        gl.draw_arrays(glow::TRIANGLES, 0, 3);
-
-        // Clean up
-        gl.bind_vertex_array(None);
-        gl.use_program(None);
-        gl.disable(glow::DEPTH_TEST);
+        Some(Self {
+            camera: Camera::new(
+                Point3::new(0.0, 0.0, 0.0),
+                -90.0, // Looking along negative Z initially
+                0.0,
+                45.0,
+                0.1,
+                100.0,
+                1.0,
+                0.1, // Pass the new speed parameter
+            ),
+        })
     }
 }
 
-impl eframe::App for OpenGLApp {
+impl eframe::App for Custom3d {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Update rotation for animation
-        self.renderer.update_rotation();
-        
-        // Create a simple egui UI
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("OpenGL Renderer");
-            ui.label("A simple rotating triangle rendered with OpenGL");
-            
-            // Request a custom rendering callback
-            let (rect, _) = ui.allocate_exact_size(egui::vec2(300.0, 300.0), egui::Sense::drag());
-            
-            // Get values we need to capture in the callback
-            let rotation = self.renderer.rotation();
-            let program = self.renderer.program();
-            let vertex_array = self.renderer.vertex_array();
-            
-            // Create a callback that only captures what it needs
-            let callback = egui::PaintCallback {
-                rect,
-                callback: Arc::new(eframe::egui_glow::CallbackFn::new(
-                    move |_info, painter| {
-                        unsafe {
-                            Self::initialize_gl(painter, program, rotation, vertex_array);
-                        }
-                    }
-                )),
-            };
-            
-            ui.painter().add(callback);
+        ctx.input(|i| {
+            if i.key_down(egui::Key::W) {
+                self.camera.process_keyboard_input(CameraMovement::Forward);
+            }
+            if i.key_down(egui::Key::S) {
+                self.camera.process_keyboard_input(CameraMovement::Backward);
+            }
+            if i.key_down(egui::Key::A) {
+                self.camera.process_keyboard_input(CameraMovement::Left);
+            }
+            if i.key_down(egui::Key::D) {
+                self.camera.process_keyboard_input(CameraMovement::Right);
+            }
+            if i.key_down(egui::Key::Space) { // Move up
+                self.camera.process_keyboard_input(CameraMovement::Up);
+            }
+            if i.key_down(egui::Key::C) { // Move down
+                self.camera.process_keyboard_input(CameraMovement::Down);
+            }
         });
-        
-        // Request continuous repainting for animation
-        ctx.request_repaint();
-    }
-    
-    fn on_exit(&mut self, gl: Option<&glow::Context>) {
-        // Clean up OpenGL resources
-        if let Some(gl) = gl {
-            self.renderer.cleanup(gl);
-        }
-    }
-}
-
-// Fallback app in case no GL context is available
-#[derive(Default)]
-pub struct FallbackApp {}
-
-impl eframe::App for FallbackApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("OpenGL Not Available");
-            ui.label("Could not initialize OpenGL. Please check your drivers and try again.");
+            egui::Frame::canvas(ui.style()).show(ui, |ui| {
+                self.custom_painting(ui);
+            });
         });
     }
-} 
+}
+
+impl Custom3d {
+    pub fn custom_painting(&mut self, ui: &mut egui::Ui) {
+        let (rect, response) =
+            ui.allocate_exact_size(egui::Vec2::new(ui.available_width(), ui.available_height()), egui::Sense::drag());
+        self.camera.update_aspect_ratio(rect.width() / rect.height());
+        self.camera.process_mouse_movement(response.drag_motion().x, response.drag_motion().y);
+        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
+            rect,
+            CubeCallback::new(self.camera.build_view_projection_matrix()),
+        ));
+        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
+            rect,
+            PyramidCallback::new(self.camera.build_view_projection_matrix()),
+        ));
+    }
+}

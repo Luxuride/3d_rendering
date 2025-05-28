@@ -1,38 +1,21 @@
-// This is a minimal test that only uses winit to create a window
-// without any OpenGL/egui to isolate the windowing system issue
-mod app;
-mod renderer;
+use crate::app::Custom3d;
+use eframe::egui::ViewportBuilder;
 
-use std::sync::Arc;
-use eframe::egui;
+pub mod app;
+pub mod render;
+mod camera;
 
-fn main() {
-    // Setup logging for better error messages
-    env_logger::init();
-    
+fn main() -> eframe::Result {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        renderer: eframe::Renderer::Glow,
-        hardware_acceleration: eframe::HardwareAcceleration::Required,
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 600.0])
-            .with_title("OpenGL Triangle Demo"),
+        viewport: ViewportBuilder::default().with_inner_size([350.0, 380.0]),
+        multisampling: 1,
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
-
-    match eframe::run_native(
-        "OpenGL Triangle Demo",
+    eframe::run_native(
+        "Custom 3D painting in eframe using glow",
         options,
-        Box::new(|cc| {
-            if let Some(gl_ctx) = cc.gl.as_ref() {
-                // We have OpenGL context, create the app with renderer
-                Ok(Box::new(app::OpenGLApp::new(Arc::clone(gl_ctx))))
-            } else {
-                // No OpenGL context, show a fallback app with error message
-                Ok(Box::new(app::FallbackApp::default()))
-            }
-        }),
-    ) {
-        Ok(_) => println!("Application closed normally"),
-        Err(e) => eprintln!("Application error: {}", e),
-    }
+        Box::new(|cc| Ok(Box::new(Custom3d::new(cc).unwrap()))),
+    )
 }
