@@ -57,6 +57,7 @@
             freeglut           # OpenGL utility toolkit
             glxinfo            # GLX information utility
             virtualgl          # X server GL provider
+            fontconfig
           ];
 
           RUSTC_VERSION = overrides.toolchain.channel;
