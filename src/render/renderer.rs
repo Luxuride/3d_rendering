@@ -1,10 +1,12 @@
-use std::num::NonZeroU64;
-use eframe::{wgpu};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
+use eframe::{egui, egui_wgpu, wgpu};
+use std::num::NonZeroU64;
+use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
 use cgmath::{Matrix4, SquareMatrix};
+use eframe::wgpu::ShaderSource;
 
 pub struct RendererRenderResources {
     pub pipeline: wgpu::RenderPipeline,
@@ -19,11 +21,11 @@ impl RendererRenderResources {
         device: &Device,
         wgpu_render_state: &RenderState,
         num_vertices: u32,
-        shader: &str,
+        source: ShaderSource,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader"),
-            source: wgpu::ShaderSource::Wgsl(shader.into()),
+            source,
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -70,15 +72,24 @@ impl RendererRenderResources {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                // ENABLE DEPTH STENCIL
+                format: wgpu::TextureFormat::Depth32Float, // Choose a suitable depth format
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less, // Draw if new depth is less than existing
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
         });
-
+        
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(&Matrix4::identity())),
+            contents: bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(
+                &Matrix4::identity(),
+            )),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
 
@@ -102,13 +113,20 @@ impl RendererRenderResources {
         }
     }
 
-    pub fn prepare(&self, _device: &wgpu::Device, queue: &wgpu::Queue, view_projection_matrix: Matrix4<f32>) {
+    pub fn prepare(
+        &self,
+        _device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view_projection_matrix: Matrix4<f32>,
+    ) {
         let transform_matrix = view_projection_matrix * self.model_matrix;
 
         queue.write_buffer(
             &self.uniform_buffer,
             0,
-            bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(&transform_matrix)),
+            bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(
+                &transform_matrix,
+            )),
         );
     }
 
@@ -116,5 +134,48 @@ impl RendererRenderResources {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..self.num_vertices, 0..1);
+    }
+}
+
+pub struct RendererCallback {
+    view_projection_matrix: Matrix4<f32>,
+    renderer: Arc<RwLock<RendererRenderResources>>,
+}
+
+impl RendererCallback {
+    pub fn new(
+        view_projection_matrix: Matrix4<f32>,
+        renderer: Arc<RwLock<RendererRenderResources>>,
+    ) -> Self {
+        Self {
+            view_projection_matrix,
+            renderer,
+        }
+    }
+}
+
+impl egui_wgpu::CallbackTrait for RendererCallback {
+    fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _egui_encoder: &mut wgpu::CommandEncoder,
+        _: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        self.renderer
+            .read()
+            .unwrap()
+            .prepare(device, queue, self.view_projection_matrix);
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        render_pass: &mut wgpu::RenderPass<'static>,
+        _: &egui_wgpu::CallbackResources,
+    ) {
+        self.renderer.read().unwrap().paint(render_pass);
     }
 }
