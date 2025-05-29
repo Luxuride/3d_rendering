@@ -84,7 +84,7 @@ impl RendererRenderResources {
             multiview: None,
             cache: None,
         });
-        
+
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
             contents: bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(
