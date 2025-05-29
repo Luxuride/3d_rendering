@@ -1,7 +1,7 @@
-use std::sync::{Arc, RwLock};
+use crate::render::renderer::RendererRenderResources;
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::{include_wgsl, Device};
-use crate::render::renderer::RendererRenderResources;
+use std::sync::{Arc, RwLock};
 
 const PYRAMID_NUM_VERTICES: u32 = 16;
 pub fn create_pyramid(

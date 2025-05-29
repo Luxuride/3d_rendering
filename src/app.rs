@@ -1,11 +1,11 @@
 use crate::camera::{Camera, CameraMovement};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
+use crate::render::shapes::cube::create_cube;
+use crate::render::shapes::pyramid::create_pyramid;
 use cgmath::Point3;
 use eframe::wgpu::include_wgsl;
 use eframe::{egui, egui_wgpu};
 use std::sync::{Arc, RwLock};
-use crate::render::shapes::cube::create_cube;
-use crate::render::shapes::pyramid::create_pyramid;
 
 pub struct Custom3d {
     camera: Camera,

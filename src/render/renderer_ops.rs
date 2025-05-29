@@ -1,6 +1,6 @@
-use std::ops::Mul;
-use cgmath::{Matrix4, Vector3};
 use crate::render::renderer::RendererRenderResources;
+use cgmath::{Matrix4, Vector3};
+use std::ops::Mul;
 
 impl RendererRenderResources {
     pub fn move_x(&mut self, x: f32) {
@@ -14,6 +14,8 @@ impl RendererRenderResources {
         self.move_x_y_z(0.0, 0.0, z);
     }
     pub fn move_x_y_z(&mut self, x: f32, y: f32, z: f32) {
-        self.model_matrix = self.model_matrix.mul(Matrix4::from_translation(Vector3::new(x, y, z)));
+        self.model_matrix = self
+            .model_matrix
+            .mul(Matrix4::from_translation(Vector3::new(x, y, z)));
     }
 }
