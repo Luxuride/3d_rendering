@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, Point3, Vector3, Deg, perspective, InnerSpace};
+use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
 
 pub struct Camera {
     pub position: Point3<f32>,
@@ -69,17 +69,22 @@ impl Camera {
             pitch_rad.cos() * yaw_rad.cos(),
             pitch_rad.sin(),
             pitch_rad.cos() * yaw_rad.sin(),
-        ).normalize()
+        )
+        .normalize()
     }
 
     // Get the right vector of the camera (orientation).
     fn get_right_vector(&self) -> Vector3<f32> {
-        self.get_forward_vector().cross(Vector3::unit_y()).normalize()
+        self.get_forward_vector()
+            .cross(Vector3::unit_y())
+            .normalize()
     }
 
     // Get the up vector of the camera (orientation).
     fn get_up_vector(&self) -> Vector3<f32> {
-        self.get_right_vector().cross(self.get_forward_vector()).normalize()
+        self.get_right_vector()
+            .cross(self.get_forward_vector())
+            .normalize()
     }
 
     // Build the view matrix (transforms world coordinates to camera coordinates).

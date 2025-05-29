@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 eframe = { version = "0.31", features = [ "wgpu" ] }
-wgpu = { version = "*", features = [ "spirv" ]}
 env_logger = "0.11"
 bytemuck = "1.23"
 log = "0.4.27"
