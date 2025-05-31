@@ -24,7 +24,7 @@ impl Camera {
         aspect_ratio: f32,
         move_speed: f32,
     ) -> Self {
-        let mut camera = Self {
+        let camera = Self {
             position,
             yaw,
             pitch,
