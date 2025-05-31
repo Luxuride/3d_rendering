@@ -1,7 +1,8 @@
+use crate::camera::camera_uniform::CameraUniform;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
 
 pub struct Camera {
-    pub position: Point3<f32>,
+    position: Point3<f32>,
     yaw: f32,   // Rotation around the global Y-axis (left/right)
     pitch: f32, // Rotation around the camera's local X-axis (up/down)
     fov_y: f32, // Field of View in degrees
@@ -23,7 +24,7 @@ impl Camera {
         aspect_ratio: f32,
         move_speed: f32,
     ) -> Self {
-        Self {
+        let mut camera = Self {
             position,
             yaw,
             pitch,
@@ -33,6 +34,12 @@ impl Camera {
             aspect_ratio,
             sensitivity: 0.1,
             move_speed,
+        };
+        camera
+    }
+    pub fn get_camera_uniform(&self) -> CameraUniform {
+        CameraUniform {
+            view_proj: self.build_view_projection_matrix().into(),
         }
     }
 
@@ -49,14 +56,15 @@ impl Camera {
     pub fn process_keyboard_input(&mut self, direction: CameraMovement) {
         let forward = self.get_forward_vector();
         let right = self.get_right_vector();
+        let up = self.get_up_vector();
 
         match direction {
             CameraMovement::Forward => self.position += forward * self.move_speed,
             CameraMovement::Backward => self.position -= forward * self.move_speed,
             CameraMovement::Left => self.position -= right * self.move_speed,
             CameraMovement::Right => self.position += right * self.move_speed,
-            CameraMovement::Up => self.position += Vector3::unit_y() * self.move_speed, // Move along world Y
-            CameraMovement::Down => self.position -= Vector3::unit_y() * self.move_speed, // Move along world Y
+            CameraMovement::Up => self.position += up * self.move_speed,
+            CameraMovement::Down => self.position -= up * self.move_speed,
         }
     }
 

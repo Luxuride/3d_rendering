@@ -1,41 +1,34 @@
-use crate::camera::{Camera, CameraMovement};
+use crate::camera::camera::{Camera, CameraMovement};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
-use crate::render::shapes::cube::create_cube;
-use crate::render::shapes::pyramid::create_pyramid;
 use cgmath::Point3;
-use eframe::wgpu::include_wgsl;
 use eframe::{egui, egui_wgpu};
 use std::sync::{Arc, RwLock};
 
 pub struct Custom3d {
     camera: Camera,
-    cube: Arc<RwLock<RendererRenderResources>>,
-    pyramid: Arc<RwLock<RendererRenderResources>>,
+    renderer: Arc<RwLock<RendererRenderResources>>,
 }
 
 impl Custom3d {
-    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
+    pub fn new(cc: &eframe::CreationContext) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-
         let device = &wgpu_render_state.device;
-        let cube = create_cube(device, wgpu_render_state);
-        cube.write().unwrap().move_x(1.0);
-        let pyramid = create_pyramid(device, wgpu_render_state);
-        pyramid.write().unwrap().move_x(-1.0);
-        Some(Self {
-            camera: Camera::new(
-                Point3::new(0.0, 0.0, 0.0),
-                -90.0, // Looking along negative Z initially
-                0.0,
-                45.0,
-                0.1,
-                100.0,
-                1.0,
-                0.1, // Pass the new speed parameter
-            ),
-            cube,
-            pyramid,
-        })
+        let camera = Camera::new(
+            Point3::new(0.0, 0.0, -5.0),
+            90.0,
+            0.0,
+            45.0,
+            0.1,
+            100.0,
+            1.0,
+            0.1, // Pass the new speed parameter
+        );
+        let renderer = Arc::new(RwLock::new(RendererRenderResources::new(
+            device,
+            wgpu_render_state,
+            &camera,
+        )));
+        Some(Self { camera, renderer })
     }
 }
 
@@ -83,17 +76,7 @@ impl Custom3d {
             .process_mouse_movement(response.drag_motion().x, response.drag_motion().y);
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
-            RendererCallback::new(
-                self.camera.build_view_projection_matrix(),
-                self.cube.clone(),
-            ),
-        ));
-        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
-            rect,
-            RendererCallback::new(
-                self.camera.build_view_projection_matrix(),
-                self.pyramid.clone(),
-            ),
+            RendererCallback::new(self.camera.get_camera_uniform(), self.renderer.clone()),
         ));
     }
 }
