@@ -24,7 +24,7 @@ impl Camera {
         aspect_ratio: f32,
         move_speed: f32,
     ) -> Self {
-        let camera = Self {
+        Self {
             position,
             yaw,
             pitch,
@@ -34,8 +34,7 @@ impl Camera {
             aspect_ratio,
             sensitivity: 0.1,
             move_speed,
-        };
-        camera
+        }
     }
     pub fn get_camera_uniform(&self) -> CameraUniform {
         CameraUniform {

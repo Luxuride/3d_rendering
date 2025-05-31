@@ -3,7 +3,6 @@ use cgmath::Zero;
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
-use std::num::NonZeroU64;
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
@@ -12,7 +11,7 @@ use crate::camera::camera_uniform::CameraUniform;
 use crate::render::instance::instance::Instance;
 use crate::render::instance::instance_raw::InstanceRaw;
 use crate::render::model::vertex::Vertex;
-use cgmath::{Matrix4, Rotation3, SquareMatrix};
+use cgmath::Rotation3;
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
@@ -67,7 +66,7 @@ pub struct RendererRenderResources {
 impl RendererRenderResources {
     pub fn new(device: &Device, wgpu_render_state: &RenderState, camera: &Camera) -> Self {
         let instances = Self::instances();
-        let instances_data = Self::instances_data(device, &instances);
+        let instances_data = Self::instances_data(&instances);
         let instances_buffer = Self::instance_buffer(device, instances_data);
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
@@ -111,7 +110,7 @@ impl RendererRenderResources {
         queue.write_buffer(
             &self.camera_uniform_buffer,
             0,
-            &bytemuck::cast_slice(&[camera_uniform]),
+            bytemuck::cast_slice(&[camera_uniform]),
         );
     }
 
@@ -195,7 +194,7 @@ impl RendererRenderResources {
             })
             .collect::<Vec<_>>()
     }
-    fn instances_data(device: &Device, instances: &Vec<Instance>) -> Vec<InstanceRaw> {
+    fn instances_data(instances: &[Instance]) -> Vec<InstanceRaw> {
         instances.iter().map(Instance::to_raw).collect::<Vec<_>>()
     }
     fn instance_buffer(device: &Device, instance_data: Vec<InstanceRaw>) -> Buffer {
@@ -233,7 +232,7 @@ impl RendererRenderResources {
         camera_uniform_buffer: &Buffer,
     ) -> BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
+            layout: camera_bind_group_layout,
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: camera_uniform_buffer.as_entire_binding(),
