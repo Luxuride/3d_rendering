@@ -1,3 +1,5 @@
+use cgmath::InnerSpace;
+use cgmath::Zero;
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
@@ -5,66 +7,279 @@ use std::num::NonZeroU64;
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
-use cgmath::{Matrix4, SquareMatrix};
-use eframe::wgpu::ShaderSource;
+use crate::camera::camera::Camera;
+use crate::camera::camera_uniform::CameraUniform;
+use crate::render::instance::instance::Instance;
+use crate::render::instance::instance_raw::InstanceRaw;
+use crate::render::model::vertex::Vertex;
+use cgmath::{Matrix4, Rotation3, SquareMatrix};
+use eframe::wgpu::{
+    include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
+    RenderPipeline,
+};
+
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+);
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.0868241, 0.49240386, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // A
+    Vertex {
+        position: [-0.49513406, 0.06958647, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // B
+    Vertex {
+        position: [-0.21918549, -0.44939706, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // C
+    Vertex {
+        position: [0.35966998, -0.3473291, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // D
+    Vertex {
+        position: [0.44147372, 0.2347359, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // E
+];
+
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub struct RendererRenderResources {
-    pub pipeline: wgpu::RenderPipeline,
-    pub bind_group: wgpu::BindGroup,
-    pub uniform_buffer: wgpu::Buffer,
-    pub model_matrix: Matrix4<f32>,
-    num_vertices: u32,
+    pub pipeline: RenderPipeline,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
+
+    // Camera buffer
+    camera_bind_group: BindGroup,
+    camera_uniform_buffer: Buffer,
+
+    // Instance
+    instances: Vec<Instance>,
+    instances_buffer: Buffer,
 }
 
 impl RendererRenderResources {
-    pub fn new(
-        device: &Device,
-        wgpu_render_state: &RenderState,
-        num_vertices: u32,
-        source: ShaderSource,
-    ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader"),
-            source,
+    pub fn new(device: &Device, wgpu_render_state: &RenderState, camera: &Camera) -> Self {
+        let instances = Self::instances();
+        let instances_data = Self::instances_data(device, &instances);
+        let instances_buffer = Self::instance_buffer(device, instances_data);
+
+        let camera_bind_group_layout = Self::camera_bind_group_layout(device);
+        let camera_uniform_buffer =
+            Self::camera_uniform_buffer(device, camera.get_camera_uniform());
+        let camera_bind_group =
+            Self::camera_bind_group(device, &camera_bind_group_layout, &camera_uniform_buffer);
+
+        let camera_bind_group_layout = Self::camera_bind_group_layout(device);
+        let pipeline_layout = Self::pipeline_layout(device, &[&camera_bind_group_layout]);
+        let pipeline = Self::pipeline(
+            device,
+            pipeline_layout,
+            wgpu_render_state.target_format.into(),
+        );
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("bind_group_layout"),
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        Self {
+            pipeline,
+            camera_bind_group,
+            vertex_buffer,
+            index_buffer,
+            camera_uniform_buffer,
+            instances,
+            instances_buffer,
+        }
+    }
+
+    pub fn prepare(&self, _device: &Device, queue: &wgpu::Queue, camera_uniform: CameraUniform) {
+        queue.write_buffer(
+            &self.camera_uniform_buffer,
+            0,
+            &bytemuck::cast_slice(&[camera_uniform]),
+        );
+    }
+
+    pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instances_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..self.instances.len() as _);
+    }
+}
+
+pub struct RendererCallback {
+    camera_uniform: CameraUniform,
+    renderer: Arc<RwLock<RendererRenderResources>>,
+}
+
+impl RendererCallback {
+    pub fn new(
+        camera_uniform: CameraUniform,
+        renderer: Arc<RwLock<RendererRenderResources>>,
+    ) -> Self {
+        Self {
+            camera_uniform,
+            renderer,
+        }
+    }
+}
+
+impl egui_wgpu::CallbackTrait for RendererCallback {
+    fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _egui_encoder: &mut wgpu::CommandEncoder,
+        _: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        self.renderer
+            .read()
+            .unwrap()
+            .prepare(device, queue, self.camera_uniform);
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        render_pass: &mut wgpu::RenderPass<'static>,
+        _: &egui_wgpu::CallbackResources,
+    ) {
+        self.renderer.read().unwrap().paint(render_pass);
+    }
+}
+
+impl RendererRenderResources {
+    fn instances() -> Vec<Instance> {
+        (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let position = cgmath::Vector3 {
+                        x: x as f32,
+                        y: 0.0,
+                        z: z as f32,
+                    } - INSTANCE_DISPLACEMENT;
+
+                    let rotation = if position.is_zero() {
+                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                        // as Quaternions can affect scale if they're not created correctly
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+
+                    Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>()
+    }
+    fn instances_data(device: &Device, instances: &Vec<Instance>) -> Vec<InstanceRaw> {
+        instances.iter().map(Instance::to_raw).collect::<Vec<_>>()
+    }
+    fn instance_buffer(device: &Device, instance_data: Vec<InstanceRaw>) -> Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        })
+    }
+    fn camera_bind_group_layout(device: &Device) -> BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(std::mem::size_of::<Matrix4<f32>>() as u64),
+                    min_binding_size: None,
                 },
                 count: None,
             }],
-        });
+            label: Some("camera_bind_group_layout"),
+        })
+    }
+    fn camera_uniform_buffer(device: &Device, camera_uniform: CameraUniform) -> Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+    fn camera_bind_group(
+        device: &Device,
+        camera_bind_group_layout: &BindGroupLayout,
+        camera_uniform_buffer: &Buffer,
+    ) -> BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: camera_uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        })
+    }
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+    fn pipeline_layout<'a>(
+        device: &Device,
+        bind_group_layouts: &'a [&'a BindGroupLayout],
+    ) -> wgpu::PipelineLayout {
+        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts,
             push_constant_ranges: &[],
+        })
+    }
+
+    fn pipeline(
+        device: &Device,
+        pipeline_layout: wgpu::PipelineLayout,
+        color_target_state: ColorTargetState,
+    ) -> RenderPipeline {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shader"),
+            source: include_wgsl!("./shader/shader.wgsl").source,
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[], // No vertex buffers for position, generated in shader
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                targets: &[Some(wgpu_render_state.target_format.into())],
+                targets: &[Some(color_target_state)],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList, // Draw as lines for wireframe
+                topology: wgpu::PrimitiveTopology::TriangleStrip, // Draw as lines for wireframe
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: None, // No culling for wireframe
@@ -83,99 +298,6 @@ impl RendererRenderResources {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
-        });
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(
-                &Matrix4::identity(),
-            )),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind_group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
-
-        let model_matrix = Matrix4::identity();
-
-        Self {
-            pipeline,
-            bind_group,
-            uniform_buffer,
-            model_matrix,
-            num_vertices,
-        }
-    }
-
-    pub fn prepare(
-        &self,
-        _device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        view_projection_matrix: Matrix4<f32>,
-    ) {
-        let transform_matrix = view_projection_matrix * self.model_matrix;
-
-        queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(<Matrix4<f32> as AsRef<[f32; 16]>>::as_ref(
-                &transform_matrix,
-            )),
-        );
-    }
-
-    pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
-        render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
-        render_pass.draw(0..self.num_vertices, 0..1);
-    }
-}
-
-pub struct RendererCallback {
-    view_projection_matrix: Matrix4<f32>,
-    renderer: Arc<RwLock<RendererRenderResources>>,
-}
-
-impl RendererCallback {
-    pub fn new(
-        view_projection_matrix: Matrix4<f32>,
-        renderer: Arc<RwLock<RendererRenderResources>>,
-    ) -> Self {
-        Self {
-            view_projection_matrix,
-            renderer,
-        }
-    }
-}
-
-impl egui_wgpu::CallbackTrait for RendererCallback {
-    fn prepare(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _egui_encoder: &mut wgpu::CommandEncoder,
-        _: &mut egui_wgpu::CallbackResources,
-    ) -> Vec<wgpu::CommandBuffer> {
-        self.renderer
-            .read()
-            .unwrap()
-            .prepare(device, queue, self.view_projection_matrix);
-        Vec::new()
-    }
-
-    fn paint(
-        &self,
-        _info: egui::PaintCallbackInfo,
-        render_pass: &mut wgpu::RenderPass<'static>,
-        _: &egui_wgpu::CallbackResources,
-    ) {
-        self.renderer.read().unwrap().paint(render_pass);
+        })
     }
 }

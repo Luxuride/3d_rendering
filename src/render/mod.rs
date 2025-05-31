@@ -1,3 +1,3 @@
+pub mod instance;
+mod model;
 pub mod renderer;
-mod renderer_ops;
-pub mod shapes;
