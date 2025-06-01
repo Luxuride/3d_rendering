@@ -20,7 +20,7 @@ impl TransformationRaw {
     pub fn transform_bind_group_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0, // This binding will hold the TransformationRaw
+                binding: 0,                             // This binding will hold the TransformationRaw
                 visibility: wgpu::ShaderStages::VERTEX, // Or VERTEX | FRAGMENT if needed in fragment
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
