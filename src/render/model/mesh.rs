@@ -1,9 +1,9 @@
+use crate::render::model::transform::transform_raw::TransformRaw;
+use crate::render::model::transform::Transform;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
 use cgmath::{Quaternion, Vector3, Zero};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use crate::render::model::transform::Transform;
-use crate::render::model::transform::transform_raw::TransformRaw;
 
 pub struct MeshBuilder {
     pub vertices: Vec<VertexRaw>,
