@@ -3,15 +3,15 @@ use eframe::wgpu::{BindGroupLayout, Device};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct TransformationRaw {
+pub struct TransformRaw {
     pub model: [[f32; 4]; 4],
 }
-impl TransformationRaw {
+impl TransformRaw {
     const ATTRIBS: [wgpu::VertexAttribute; 4] =
         wgpu::vertex_attr_array![5 => Float32x4, 6 => Float32x4, 7 => Float32x4, 8 => Float32x4];
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: size_of::<TransformationRaw>() as wgpu::BufferAddress,
+            array_stride: size_of::<TransformRaw>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
