@@ -1,4 +1,4 @@
-use crate::camera::camera::{Camera, CameraMovement};
+use crate::render::model::camera::{Camera, CameraBuilder, CameraMovement};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
 use eframe::{egui, egui_wgpu};
@@ -13,16 +13,10 @@ impl Custom3d {
     pub fn new(cc: &eframe::CreationContext) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
-        let camera = Camera::new(
-            Point3::new(0.0, 0.0, -5.0),
-            90.0,
-            0.0,
-            45.0,
-            0.1,
-            100.0,
-            1.0,
-            0.1, // Pass the new speed parameter
-        );
+        let camera = CameraBuilder::default()
+            .position(Point3::new(0.0, 0.0, -5.0))
+            .build();
+
         let renderer = Arc::new(RwLock::new(RendererRenderResources::new(
             device,
             wgpu_render_state,

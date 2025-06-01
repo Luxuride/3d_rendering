@@ -2,8 +2,6 @@ use crate::app::Custom3d;
 use eframe::egui::ViewportBuilder;
 
 pub mod app;
-pub mod camera;
-pub mod data;
 pub mod render;
 
 fn main() -> eframe::Result {

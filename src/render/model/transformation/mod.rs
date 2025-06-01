@@ -12,7 +12,7 @@ impl Transformation {
         TransformationRaw {
             model: (cgmath::Matrix4::from_translation(self.position)
                 * cgmath::Matrix4::from(self.rotation))
-                .into(),
+            .into(),
         }
     }
 }

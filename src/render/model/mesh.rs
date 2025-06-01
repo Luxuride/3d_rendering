@@ -1,9 +1,9 @@
+use crate::render::model::transformation::transformation_raw::TransformationRaw;
+use crate::render::model::transformation::Transformation;
+use crate::render::model::vertex::vertex_raw::VertexRaw;
 use cgmath::{Quaternion, Vector3, Zero};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use crate::render::model::transformation::Transformation;
-use crate::render::model::transformation::transformation_raw::TransformationRaw;
-use crate::render::model::vertex::vertex_raw::VertexRaw;
 
 pub struct MeshBuilder {
     pub vertices: Vec<VertexRaw>,
@@ -12,8 +12,8 @@ pub struct MeshBuilder {
     pub rotation: Quaternion<f32>,
 }
 
-impl MeshBuilder {
-    pub fn new() -> Self {
+impl Default for MeshBuilder {
+    fn default() -> Self {
         Self {
             vertices: vec![],
             indices: vec![],
@@ -21,6 +21,9 @@ impl MeshBuilder {
             rotation: Quaternion::zero(),
         }
     }
+}
+
+impl MeshBuilder {
     pub fn vertices(mut self, vertices: Vec<VertexRaw>) -> Self {
         self.vertices = vertices;
         self

@@ -1,28 +1,18 @@
-use cgmath::InnerSpace;
-use cgmath::Zero;
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
-use crate::camera::camera::Camera;
-use crate::camera::camera_uniform::CameraUniform;
-use crate::render::model::vertex::vertex_raw::{VertexRaw};
+use crate::render::model::camera::camera_raw::CameraRaw;
+use crate::render::model::camera::Camera;
+use crate::render::model::mesh::{Mesh, MeshBuilder};
+use crate::render::model::transformation::transformation_raw::TransformationRaw;
+use crate::render::model::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
 };
-use crate::render::model::mesh::{Mesh, MeshBuilder};
-use crate::render::model::transformation::Transformation;
-use crate::render::model::transformation::transformation_raw::TransformationRaw;
-
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
 
 const VERTICES: &[VertexRaw] = &[
     VertexRaw {
@@ -63,8 +53,12 @@ impl RendererRenderResources {
             Self::camera_bind_group(device, &camera_bind_group_layout, &camera_uniform_buffer);
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
-        let transformation_bind_group_layout = TransformationRaw::transform_bind_group_layout(device);
-        let pipeline_layout = Self::pipeline_layout(device, &[&camera_bind_group_layout, &transformation_bind_group_layout]);
+        let transformation_bind_group_layout =
+            TransformationRaw::transform_bind_group_layout(device);
+        let pipeline_layout = Self::pipeline_layout(
+            device,
+            &[&camera_bind_group_layout, &transformation_bind_group_layout],
+        );
         let pipeline = Self::pipeline(
             device,
             pipeline_layout,
@@ -72,7 +66,10 @@ impl RendererRenderResources {
         );
 
         let mut instances = vec![];
-        let mesh1 = MeshBuilder::new().vertices(VERTICES.to_vec()).indices(INDICES.to_vec()).build(device);
+        let mesh1 = MeshBuilder::default()
+            .vertices(VERTICES.to_vec())
+            .indices(INDICES.to_vec())
+            .build(device);
         instances.push(mesh1);
 
         Self {
@@ -83,14 +80,18 @@ impl RendererRenderResources {
         }
     }
 
-    pub fn prepare(&self, _device: &Device, queue: &wgpu::Queue, camera_uniform: CameraUniform) {
+    pub fn prepare(&self, _device: &Device, queue: &wgpu::Queue, camera_uniform: CameraRaw) {
         queue.write_buffer(
             &self.camera_uniform_buffer,
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
         for instance in self.instances.iter() {
-            queue.write_buffer(instance.get_transformation_buffer(), 0, bytemuck::cast_slice(&[instance.get_transformation().to_raw()]));
+            queue.write_buffer(
+                instance.get_transformation_buffer(),
+                0,
+                bytemuck::cast_slice(&[instance.get_transformation().to_raw()]),
+            );
         }
     }
 
@@ -101,22 +102,22 @@ impl RendererRenderResources {
             render_pass.set_bind_group(1, instance.get_transformation_bind_group(), &[]); // Bind transformation to slot 1
 
             render_pass.set_vertex_buffer(0, instance.get_vertex_buffer().slice(..));
-            render_pass.set_index_buffer(instance.get_index_buffer().slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(
+                instance.get_index_buffer().slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
             render_pass.draw_indexed(0..instance.get_num_indices(), 0, 0..1); // Draw 1 instance of this mesh
         }
     }
 }
 
 pub struct RendererCallback {
-    camera_uniform: CameraUniform,
+    camera_uniform: CameraRaw,
     renderer: Arc<RwLock<RendererRenderResources>>,
 }
 
 impl RendererCallback {
-    pub fn new(
-        camera_uniform: CameraUniform,
-        renderer: Arc<RwLock<RendererRenderResources>>,
-    ) -> Self {
+    pub fn new(camera_uniform: CameraRaw, renderer: Arc<RwLock<RendererRenderResources>>) -> Self {
         Self {
             camera_uniform,
             renderer,
@@ -166,7 +167,7 @@ impl RendererRenderResources {
             label: Some("camera_bind_group_layout"),
         })
     }
-    fn camera_uniform_buffer(device: &Device, camera_uniform: CameraUniform) -> Buffer {
+    fn camera_uniform_buffer(device: &Device, camera_uniform: CameraRaw) -> Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&[camera_uniform]),
@@ -225,19 +226,18 @@ impl RendererRenderResources {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip, // Draw as lines for wireframe
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, // No culling for wireframe
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                // ENABLE DEPTH STENCIL
-                format: wgpu::TextureFormat::Depth32Float, // Choose a suitable depth format
+                format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // Draw if new depth is less than existing
+                depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),

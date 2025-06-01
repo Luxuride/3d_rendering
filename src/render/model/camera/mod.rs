@@ -1,11 +1,91 @@
-use crate::camera::camera_uniform::CameraUniform;
+use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
+pub mod camera_raw;
+
+pub struct CameraBuilder {
+    position: Point3<f32>,
+    yaw: f32,
+    pitch: f32,
+    fov_y: f32,
+    z_near: f32,
+    z_far: f32,
+    aspect_ratio: f32,
+    sensitivity: f32,
+    move_speed: f32,
+}
+impl Default for CameraBuilder {
+    fn default() -> Self {
+        Self {
+            position: Point3::new(0.0, 0.0, 0.0),
+            yaw: 90.0,
+            pitch: 0.0,
+            fov_y: 45.0,
+            z_near: 0.1,
+            z_far: 100.0,
+            aspect_ratio: 1.0,
+            sensitivity: 0.1,
+            move_speed: 0.1,
+        }
+    }
+}
+
+impl CameraBuilder {
+    pub fn position(mut self, position: Point3<f32>) -> Self {
+        self.position = position;
+        self
+    }
+    pub fn yaw(mut self, yaw: f32) -> Self {
+        self.yaw = yaw;
+        self
+    }
+    pub fn pitch(mut self, pitch: f32) -> Self {
+        self.pitch = pitch;
+        self
+    }
+    pub fn fov_y(mut self, fov_y: f32) -> Self {
+        self.fov_y = fov_y;
+        self
+    }
+    pub fn z_near(mut self, z_near: f32) -> Self {
+        self.z_near = z_near;
+        self
+    }
+    pub fn z_far(mut self, z_far: f32) -> Self {
+        self.z_far = z_far;
+        self
+    }
+    pub fn aspect_ratio(mut self, aspect_ratio: f32) -> Self {
+        self.aspect_ratio = aspect_ratio;
+        self
+    }
+    pub fn sensitivity(mut self, sensitivity: f32) -> Self {
+        self.sensitivity = sensitivity;
+        self
+    }
+    pub fn move_speed(mut self, move_speed: f32) -> Self {
+        self.move_speed = move_speed;
+        self
+    }
+    pub fn build(self) -> Camera {
+        Camera {
+            position: self.position,
+            yaw: self.yaw,
+            pitch: self.pitch,
+            fov_y: self.fov_y,
+            z_near: self.z_near,
+            z_far: self.z_far,
+            aspect_ratio: self.aspect_ratio,
+            sensitivity: self.sensitivity,
+            move_speed: self.move_speed,
+        }
+    }
+}
 
 pub struct Camera {
     position: Point3<f32>,
-    yaw: f32,   // Rotation around the global Y-axis (left/right)
-    pitch: f32, // Rotation around the camera's local X-axis (up/down)
-    fov_y: f32, // Field of View in degrees
+    yaw: f32,
+    pitch: f32,
+    fov_y: f32,
     z_near: f32,
     z_far: f32,
     aspect_ratio: f32,
@@ -14,30 +94,8 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(
-        position: Point3<f32>,
-        yaw: f32,
-        pitch: f32,
-        fov_y: f32,
-        z_near: f32,
-        z_far: f32,
-        aspect_ratio: f32,
-        move_speed: f32,
-    ) -> Self {
-        Self {
-            position,
-            yaw,
-            pitch,
-            fov_y,
-            z_near,
-            z_far,
-            aspect_ratio,
-            sensitivity: 0.1,
-            move_speed,
-        }
-    }
-    pub fn get_camera_uniform(&self) -> CameraUniform {
-        CameraUniform {
+    pub fn get_camera_uniform(&self) -> CameraRaw {
+        CameraRaw {
             view_proj: self.build_view_projection_matrix().into(),
         }
     }

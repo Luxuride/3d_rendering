@@ -4,7 +4,7 @@ use vertex_raw::VertexRaw;
 pub mod vertex_raw;
 
 pub struct Vertex {
-    pub position: Vector3<f32>
+    pub position: Vector3<f32>,
 }
 
 impl Vertex {
