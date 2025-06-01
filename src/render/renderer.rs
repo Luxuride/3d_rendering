@@ -7,12 +7,12 @@ use wgpu::Device;
 use crate::render::model::camera::camera_raw::CameraRaw;
 use crate::render::model::camera::Camera;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
+use crate::render::model::transform::transform_raw::TransformRaw;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
 };
-use crate::render::model::transform::transform_raw::TransformRaw;
 
 const VERTICES: &[VertexRaw] = &[
     VertexRaw {
@@ -53,8 +53,7 @@ impl RendererRenderResources {
             Self::camera_bind_group(device, &camera_bind_group_layout, &camera_uniform_buffer);
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
-        let transform_bind_group_layout =
-            TransformRaw::transform_bind_group_layout(device);
+        let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
         let pipeline_layout = Self::pipeline_layout(
             device,
             &[&camera_bind_group_layout, &transform_bind_group_layout],
