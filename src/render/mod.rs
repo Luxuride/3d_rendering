@@ -1,3 +1,2 @@
-pub mod instance;
-mod model;
+pub mod model;
 pub mod renderer;

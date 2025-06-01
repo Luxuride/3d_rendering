@@ -8,14 +8,14 @@ use wgpu::Device;
 
 use crate::camera::camera::Camera;
 use crate::camera::camera_uniform::CameraUniform;
-use crate::render::instance::instance::Instance;
-use crate::render::instance::instance_raw::InstanceRaw;
-use crate::render::model::vertex::Vertex;
-use cgmath::Rotation3;
+use crate::render::model::vertex::vertex_raw::{VertexRaw};
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
 };
+use crate::render::model::mesh::{Mesh, MeshBuilder};
+use crate::render::model::transformation::Transformation;
+use crate::render::model::transformation::transformation_raw::TransformationRaw;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
@@ -24,26 +24,21 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
+const VERTICES: &[VertexRaw] = &[
+    VertexRaw {
         position: [-0.0868241, 0.49240386, 0.0],
-        color: [0.5, 0.0, 0.5],
     }, // A
-    Vertex {
+    VertexRaw {
         position: [-0.49513406, 0.06958647, 0.0],
-        color: [0.5, 0.0, 0.5],
     }, // B
-    Vertex {
+    VertexRaw {
         position: [-0.21918549, -0.44939706, 0.0],
-        color: [0.5, 0.0, 0.5],
     }, // C
-    Vertex {
+    VertexRaw {
         position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
     }, // D
-    Vertex {
+    VertexRaw {
         position: [0.44147372, 0.2347359, 0.0],
-        color: [0.5, 0.0, 0.5],
     }, // E
 ];
 
@@ -51,24 +46,16 @@ const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub struct RendererRenderResources {
     pub pipeline: RenderPipeline,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-
     // Camera buffer
     camera_bind_group: BindGroup,
     camera_uniform_buffer: Buffer,
 
     // Instance
-    instances: Vec<Instance>,
-    instances_buffer: Buffer,
+    instances: Vec<Mesh>,
 }
 
 impl RendererRenderResources {
     pub fn new(device: &Device, wgpu_render_state: &RenderState, camera: &Camera) -> Self {
-        let instances = Self::instances();
-        let instances_data = Self::instances_data(&instances);
-        let instances_buffer = Self::instance_buffer(device, instances_data);
-
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
         let camera_uniform_buffer =
             Self::camera_uniform_buffer(device, camera.get_camera_uniform());
@@ -76,33 +63,23 @@ impl RendererRenderResources {
             Self::camera_bind_group(device, &camera_bind_group_layout, &camera_uniform_buffer);
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
-        let pipeline_layout = Self::pipeline_layout(device, &[&camera_bind_group_layout]);
+        let transformation_bind_group_layout = TransformationRaw::transform_bind_group_layout(device);
+        let pipeline_layout = Self::pipeline_layout(device, &[&camera_bind_group_layout, &transformation_bind_group_layout]);
         let pipeline = Self::pipeline(
             device,
             pipeline_layout,
             wgpu_render_state.target_format.into(),
         );
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let mut instances = vec![];
+        let mesh1 = MeshBuilder::new().vertices(VERTICES.to_vec()).indices(INDICES.to_vec()).build(device);
+        instances.push(mesh1);
 
         Self {
             pipeline,
             camera_bind_group,
-            vertex_buffer,
-            index_buffer,
             camera_uniform_buffer,
             instances,
-            instances_buffer,
         }
     }
 
@@ -112,15 +89,21 @@ impl RendererRenderResources {
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
+        for instance in self.instances.iter() {
+            queue.write_buffer(instance.get_transformation_buffer(), 0, bytemuck::cast_slice(&[instance.get_transformation().to_raw()]));
+        }
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.instances_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..self.instances.len() as _);
+        for instance in self.instances.iter() {
+            render_pass.set_bind_group(1, instance.get_transformation_bind_group(), &[]); // Bind transformation to slot 1
+
+            render_pass.set_vertex_buffer(0, instance.get_vertex_buffer().slice(..));
+            render_pass.set_index_buffer(instance.get_index_buffer().slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..instance.get_num_indices(), 0, 0..1); // Draw 1 instance of this mesh
+        }
     }
 }
 
@@ -168,42 +151,6 @@ impl egui_wgpu::CallbackTrait for RendererCallback {
 }
 
 impl RendererRenderResources {
-    fn instances() -> Vec<Instance> {
-        (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
-
-                    let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can affect scale if they're not created correctly
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>()
-    }
-    fn instances_data(instances: &[Instance]) -> Vec<InstanceRaw> {
-        instances.iter().map(Instance::to_raw).collect::<Vec<_>>()
-    }
-    fn instance_buffer(device: &Device, instance_data: Vec<InstanceRaw>) -> Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        })
-    }
     fn camera_bind_group_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -268,7 +215,7 @@ impl RendererRenderResources {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
+                buffers: &[VertexRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
