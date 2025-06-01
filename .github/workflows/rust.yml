@@ -75,3 +75,21 @@ jobs:
         with:
           name: egui-wgpu-windows-binary
           path: target/release/opengl.exe
+
+  build-macos:
+    runs-on: macos-latest
+    needs: [fmt, clippy]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Build project (macOS)
+        run: cargo build --release
+      - name: Upload macOS Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: egui-wgpu-macos-binary
+          path: target/release/opengl
