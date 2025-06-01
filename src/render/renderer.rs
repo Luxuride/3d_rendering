@@ -7,12 +7,12 @@ use wgpu::Device;
 use crate::render::model::camera::camera_raw::CameraRaw;
 use crate::render::model::camera::Camera;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
-use crate::render::model::transformation::transformation_raw::TransformationRaw;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
 };
+use crate::render::model::transform::transform_raw::TransformRaw;
 
 const VERTICES: &[VertexRaw] = &[
     VertexRaw {
@@ -53,11 +53,11 @@ impl RendererRenderResources {
             Self::camera_bind_group(device, &camera_bind_group_layout, &camera_uniform_buffer);
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
-        let transformation_bind_group_layout =
-            TransformationRaw::transform_bind_group_layout(device);
+        let transform_bind_group_layout =
+            TransformRaw::transform_bind_group_layout(device);
         let pipeline_layout = Self::pipeline_layout(
             device,
-            &[&camera_bind_group_layout, &transformation_bind_group_layout],
+            &[&camera_bind_group_layout, &transform_bind_group_layout],
         );
         let pipeline = Self::pipeline(
             device,
@@ -88,9 +88,9 @@ impl RendererRenderResources {
         );
         for instance in self.instances.iter() {
             queue.write_buffer(
-                instance.get_transformation_buffer(),
+                instance.get_transform_buffer(),
                 0,
-                bytemuck::cast_slice(&[instance.get_transformation().to_raw()]),
+                bytemuck::cast_slice(&[instance.get_transform().to_raw()]),
             );
         }
     }
@@ -99,7 +99,7 @@ impl RendererRenderResources {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
         for instance in self.instances.iter() {
-            render_pass.set_bind_group(1, instance.get_transformation_bind_group(), &[]); // Bind transformation to slot 1
+            render_pass.set_bind_group(1, instance.get_transform_bind_group(), &[]);
 
             render_pass.set_vertex_buffer(0, instance.get_vertex_buffer().slice(..));
             render_pass.set_index_buffer(

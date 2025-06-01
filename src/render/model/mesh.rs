@@ -1,9 +1,9 @@
-use crate::render::model::transformation::transformation_raw::TransformationRaw;
-use crate::render::model::transformation::Transformation;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
 use cgmath::{Quaternion, Vector3, Zero};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
+use crate::render::model::transform::Transform;
+use crate::render::model::transform::transform_raw::TransformRaw;
 
 pub struct MeshBuilder {
     pub vertices: Vec<VertexRaw>,
@@ -45,7 +45,7 @@ impl MeshBuilder {
             device,
             self.vertices,
             self.indices,
-            Transformation {
+            Transform {
                 position: self.position,
                 rotation: self.rotation,
             },
@@ -58,7 +58,7 @@ pub struct Mesh {
     vertex_buffer: wgpu::Buffer,
     indices: Vec<u16>,
     index_buffer: wgpu::Buffer,
-    transformation: Transformation,
+    transform: Transform,
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
 }
@@ -68,7 +68,7 @@ impl Mesh {
         device: &wgpu::Device,
         vertices: Vec<VertexRaw>,
         indices: Vec<u16>,
-        transformation: Transformation,
+        transform: Transform,
     ) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -82,10 +82,10 @@ impl Mesh {
         });
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&transformation.to_raw().model),
+            contents: bytemuck::cast_slice(&transform.to_raw().model),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        let transform_bind_group_layout = TransformationRaw::transform_bind_group_layout(device);
+        let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
         let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &transform_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -98,7 +98,7 @@ impl Mesh {
         Self {
             vertex_buffer,
             index_buffer,
-            transformation,
+            transform,
             transform_buffer,
             vertices,
             indices,
@@ -120,13 +120,13 @@ impl Mesh {
     pub fn get_index_buffer(&self) -> &wgpu::Buffer {
         &self.index_buffer
     }
-    pub fn get_transformation(&self) -> &Transformation {
-        &self.transformation
+    pub fn get_transform(&self) -> &Transform {
+        &self.transform
     }
-    pub fn get_transformation_buffer(&self) -> &wgpu::Buffer {
+    pub fn get_transform_buffer(&self) -> &wgpu::Buffer {
         &self.transform_buffer
     }
-    pub fn get_transformation_bind_group(&self) -> &wgpu::BindGroup {
+    pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
         &self.transform_bind_group
     }
     pub fn set_vertices(&mut self, vertices: Vec<VertexRaw>) {
