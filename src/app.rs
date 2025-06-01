@@ -55,6 +55,7 @@ impl eframe::App for Custom3d {
                 self.custom_painting(ui);
             });
         });
+        ctx.request_repaint();
     }
 }
 

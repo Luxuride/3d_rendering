@@ -4,35 +4,16 @@ use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
+use crate::render::mesh::cube::cube_mesh_builder;
+use crate::render::mesh::Mesh;
 use crate::render::model::camera::camera_raw::CameraRaw;
 use crate::render::model::camera::Camera;
-use crate::render::model::mesh::{Mesh, MeshBuilder};
 use crate::render::model::transform::transform_raw::TransformRaw;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu::{
     include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
     RenderPipeline,
 };
-
-const VERTICES: &[VertexRaw] = &[
-    VertexRaw {
-        position: [-0.0868241, 0.49240386, 0.0],
-    }, // A
-    VertexRaw {
-        position: [-0.49513406, 0.06958647, 0.0],
-    }, // B
-    VertexRaw {
-        position: [-0.21918549, -0.44939706, 0.0],
-    }, // C
-    VertexRaw {
-        position: [0.35966998, -0.3473291, 0.0],
-    }, // D
-    VertexRaw {
-        position: [0.44147372, 0.2347359, 0.0],
-    }, // E
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub struct RendererRenderResources {
     pub pipeline: RenderPipeline,
@@ -65,11 +46,8 @@ impl RendererRenderResources {
         );
 
         let mut instances = vec![];
-        let mesh1 = MeshBuilder::default()
-            .vertices(VERTICES.to_vec())
-            .indices(INDICES.to_vec())
-            .build(device);
-        instances.push(mesh1);
+        let cube = cube_mesh_builder().build(device);
+        instances.push(cube);
 
         Self {
             pipeline,

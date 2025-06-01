@@ -1,3 +1,5 @@
+pub mod cube;
+
 use crate::render::model::transform::transform_raw::TransformRaw;
 use crate::render::model::transform::Transform;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
@@ -54,10 +56,9 @@ impl MeshBuilder {
 }
 
 pub struct Mesh {
-    vertices: Vec<VertexRaw>,
     vertex_buffer: wgpu::Buffer,
-    indices: Vec<u16>,
     index_buffer: wgpu::Buffer,
+    index_count: u32,
     transform: Transform,
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
@@ -94,28 +95,22 @@ impl Mesh {
             }],
             label: Some("per_mesh_transform_bind_group"),
         });
+        let index_count = indices.len() as u32;
 
         Self {
             vertex_buffer,
             index_buffer,
+            index_count,
             transform,
             transform_buffer,
-            vertices,
-            indices,
             transform_bind_group,
         }
     }
     pub fn get_num_indices(&self) -> u32 {
-        self.indices.len() as u32
-    }
-    pub fn get_vertices(&self) -> &[VertexRaw] {
-        &self.vertices
+        self.index_count
     }
     pub fn get_vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
-    }
-    pub fn get_indices(&self) -> &[u16] {
-        &self.indices
     }
     pub fn get_index_buffer(&self) -> &wgpu::Buffer {
         &self.index_buffer
@@ -128,11 +123,5 @@ impl Mesh {
     }
     pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
         &self.transform_bind_group
-    }
-    pub fn set_vertices(&mut self, vertices: Vec<VertexRaw>) {
-        self.vertices = vertices;
-    }
-    pub fn set_indices(&mut self, indices: Vec<u16>) {
-        self.indices = indices;
     }
 }
