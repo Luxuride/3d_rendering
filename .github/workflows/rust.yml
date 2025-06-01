@@ -49,9 +49,14 @@ jobs:
       - name: Install build dependencies (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libx11-dev libxcb-randr0-dev libxcb-xinput-dev # Common dependencies for WGPU on Linux
+          sudo apt-get install -y pkg-config libx11-dev libxcb-randr0-dev libxcb-xinput-dev
       - name: Build project (Linux)
         run: cargo build --release
+      - name: Upload Linux Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: egui-wgpu-linux-binary
+          path: target/release/opengl
 
   build-windows:
     runs-on: windows-latest
@@ -63,6 +68,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-
       - name: Build project (Windows)
         run: cargo build --release
+      - name: Upload Windows Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: egui-wgpu-windows-binary
+          path: target/release/opengl.exe
