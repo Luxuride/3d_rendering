@@ -9,10 +9,8 @@ pub struct Transform {
 
 impl Transform {
     pub(crate) fn to_raw(&self) -> TransformRaw {
-        TransformRaw {
-            model: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
-            .into(),
-        }
+        let transform =
+            cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation);
+        TransformRaw::new(transform.into())
     }
 }

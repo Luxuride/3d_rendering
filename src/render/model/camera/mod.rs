@@ -95,9 +95,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn get_camera_uniform(&self) -> CameraRaw {
-        CameraRaw {
-            view_proj: self.build_view_projection_matrix().into(),
-        }
+        CameraRaw::new(self.build_view_projection_matrix().into())
     }
 
     // Processes raw mouse delta to update yaw and pitch (orientation).

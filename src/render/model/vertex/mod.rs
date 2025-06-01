@@ -9,8 +9,6 @@ pub struct Vertex {
 
 impl Vertex {
     pub fn to_raw(&self) -> VertexRaw {
-        VertexRaw {
-            position: self.position.into(),
-        }
+        VertexRaw::new(self.position.into())
     }
 }
