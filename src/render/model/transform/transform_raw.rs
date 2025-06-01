@@ -4,9 +4,12 @@ use eframe::wgpu::{BindGroupLayout, Device};
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct TransformRaw {
-    pub model: [[f32; 4]; 4],
+    model: [[f32; 4]; 4],
 }
 impl TransformRaw {
+    pub fn new(model: [[f32; 4]; 4]) -> Self {
+        Self { model }
+    }
     pub fn transform_bind_group_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -21,5 +24,8 @@ impl TransformRaw {
             }],
             label: Some("transform_bind_group_layout"),
         })
+    }
+    pub fn get_model(&self) -> &[[f32; 4]; 4] {
+        &self.model
     }
 }

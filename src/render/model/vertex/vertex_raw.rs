@@ -3,10 +3,15 @@ use eframe::wgpu;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct VertexRaw {
+    // Public for constants
     pub position: [f32; 3],
 }
 
 impl VertexRaw {
+    pub fn new(position: [f32; 3]) -> VertexRaw {
+        VertexRaw { position }
+    }
+
     const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {

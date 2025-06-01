@@ -16,7 +16,7 @@ use eframe::wgpu::{
 };
 
 pub struct RendererRenderResources {
-    pub pipeline: RenderPipeline,
+    pipeline: RenderPipeline,
     // Camera buffer
     camera_bind_group: BindGroup,
     camera_uniform_buffer: Buffer,
@@ -75,7 +75,7 @@ impl RendererRenderResources {
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        
+
         for instance in self.instances.iter() {
             render_pass.set_bind_group(1, instance.get_transform_bind_group(), &[]);
 

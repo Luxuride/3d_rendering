@@ -8,10 +8,10 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 
 pub struct MeshBuilder {
-    pub vertices: Vec<VertexRaw>,
-    pub indices: Vec<u16>,
-    pub position: Vector3<f32>,
-    pub rotation: Quaternion<f32>,
+    vertices: Vec<VertexRaw>,
+    indices: Vec<u16>,
+    position: Vector3<f32>,
+    rotation: Quaternion<f32>,
 }
 
 impl Default for MeshBuilder {
@@ -83,7 +83,7 @@ impl Mesh {
         });
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&transform.to_raw().model),
+            contents: bytemuck::cast_slice(transform.to_raw().get_model()),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
