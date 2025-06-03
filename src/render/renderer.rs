@@ -4,13 +4,17 @@ use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
+use crate::render::mesh::axis::{x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder};
 use crate::render::mesh::cube::cube_mesh_builder;
 use crate::render::mesh::Mesh;
 use crate::render::model::camera::camera_raw::CameraRaw;
 use crate::render::model::camera::Camera;
 use crate::render::model::transform::transform_raw::TransformRaw;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
-use eframe::wgpu::{include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState, Features, RenderPipeline};
+use eframe::wgpu::{
+    include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
+    RenderPipeline,
+};
 
 pub struct RendererRenderResources {
     pipeline: RenderPipeline,
@@ -44,7 +48,15 @@ impl RendererRenderResources {
 
         let mut instances = vec![];
         let cube = cube_mesh_builder().build(device);
+        let (axis_x, axis_y, axis_z) = (
+            x_axis_mesh_builder().build(device),
+            y_axis_mesh_builder().build(device),
+            z_axis_mesh_builder().build(device),
+        );
         instances.push(cube);
+        instances.push(axis_x);
+        instances.push(axis_y);
+        instances.push(axis_z);
 
         Self {
             pipeline,
