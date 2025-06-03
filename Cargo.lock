@@ -2229,7 +2229,6 @@ dependencies = [
  "cgmath",
  "eframe",
  "env_logger",
- "log",
 ]
 
 [[package]]

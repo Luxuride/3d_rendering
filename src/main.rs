@@ -1,5 +1,9 @@
+use std::sync::Arc;
 use crate::app::Custom3d;
 use eframe::egui::ViewportBuilder;
+use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
+use eframe::wgpu;
+use eframe::wgpu::{Backends, Features, InstanceDescriptor};
 
 pub mod app;
 pub mod render;
@@ -11,6 +15,20 @@ fn main() -> eframe::Result {
         multisampling: 1,
         renderer: eframe::Renderer::Wgpu,
         depth_buffer: 32,
+        wgpu_options: WgpuConfiguration {
+            wgpu_setup: WgpuSetup::CreateNew(
+                WgpuSetupCreateNew {
+                    device_descriptor: Arc::new(|_adapter| {
+                        wgpu::DeviceDescriptor {
+                            required_features: Features::POLYGON_MODE_LINE | Default::default(),
+                            ..Default::default()
+                        }
+                    }),
+                    ..Default::default()
+                }
+            ),
+            ..Default::default()
+        },
         ..Default::default()
     };
     eframe::run_native(

@@ -10,10 +10,7 @@ use crate::render::model::camera::camera_raw::CameraRaw;
 use crate::render::model::camera::Camera;
 use crate::render::model::transform::transform_raw::TransformRaw;
 use crate::render::model::vertex::vertex_raw::VertexRaw;
-use eframe::wgpu::{
-    include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
-    RenderPipeline,
-};
+use eframe::wgpu::{include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState, Features, RenderPipeline};
 
 pub struct RendererRenderResources {
     pipeline: RenderPipeline,
@@ -187,7 +184,6 @@ impl RendererRenderResources {
             label: Some("shader"),
             source: include_wgsl!("./shader/shader.wgsl").source,
         });
-
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("pipeline"),
             layout: Some(&pipeline_layout),
@@ -204,12 +200,12 @@ impl RendererRenderResources {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: None,
                 unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
+                polygon_mode: wgpu::PolygonMode::Line,
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
