@@ -1,3 +1,4 @@
+pub mod axis;
 pub mod cube;
 
 use crate::render::model::transform::transform_raw::TransformRaw;
@@ -12,6 +13,7 @@ pub struct MeshBuilder {
     indices: Vec<u16>,
     position: Vector3<f32>,
     rotation: Quaternion<f32>,
+    scale: Vector3<f32>,
 }
 
 impl Default for MeshBuilder {
@@ -21,6 +23,7 @@ impl Default for MeshBuilder {
             indices: vec![],
             position: Vector3::zero(),
             rotation: Quaternion::zero(),
+            scale: Vector3::new(1.0, 1.0, 1.0),
         }
     }
 }
@@ -50,6 +53,7 @@ impl MeshBuilder {
             Transform {
                 position: self.position,
                 rotation: self.rotation,
+                scale: self.scale,
             },
         )
     }
