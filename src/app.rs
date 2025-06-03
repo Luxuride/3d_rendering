@@ -16,6 +16,7 @@ impl Custom3d {
     pub fn new(cc: &eframe::CreationContext) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.clone()?;
         let camera = CameraBuilder::default()
+            .z_far(500.0)
             .position(Point3::new(0.0, 0.0, -5.0))
             .build();
 
@@ -30,6 +31,9 @@ impl Custom3d {
 impl eframe::App for Custom3d {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.input(|i| {
+            if i.modifiers.shift {
+                self.camera.move_speed = 1.0;
+            }
             if i.key_down(egui::Key::W) {
                 self.camera.process_keyboard_input(CameraMovement::Forward);
             }
@@ -56,6 +60,7 @@ impl eframe::App for Custom3d {
             if i.key_down(egui::Key::E) {
                 self.camera.process_keyboard_input(CameraMovement::FovDown);
             }
+            self.camera.move_speed = 0.1;
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -69,7 +74,7 @@ impl eframe::App for Custom3d {
             if button.clicked() {
                 if let Some(file) = rfd::FileDialog::new().pick_file() {
                     let renderer = &mut self.renderer.write().unwrap();
-                    let model = 
+                    let model =
                         Model::load_model(&file, &renderer.wgpu_render_state.device, &renderer.wgpu_render_state.queue).unwrap();
                     renderer.models.push(model);
                 }
