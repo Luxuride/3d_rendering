@@ -20,6 +20,8 @@ use eframe::wgpu::{
 };
 
 pub struct RendererRenderResources {
+    pub wgpu_render_state: RenderState,
+
     mesh_pipeline: RenderPipeline,
     model_pipeline: RenderPipeline,
     // Camera buffer
@@ -28,11 +30,12 @@ pub struct RendererRenderResources {
 
     // Instance
     meshes: Vec<Mesh>,
-    models: Vec<Model>,
+    pub models: Vec<Model>,
 }
 
 impl RendererRenderResources {
-    pub fn new(device: &Device, wgpu_render_state: &RenderState, camera: &Camera) -> Self {
+    pub fn new(wgpu_render_state: RenderState, camera: &Camera) -> Self {
+        let device = &wgpu_render_state.device;
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
         let camera_uniform_buffer =
             Self::camera_uniform_buffer(device, camera.get_camera_uniform());
@@ -83,6 +86,7 @@ impl RendererRenderResources {
             camera_uniform_buffer,
             meshes,
             models,
+            wgpu_render_state,
         }
     }
 

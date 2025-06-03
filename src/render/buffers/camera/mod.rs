@@ -120,6 +120,8 @@ impl Camera {
             CameraMovement::Right => self.position += right * self.move_speed,
             CameraMovement::Up => self.position += up * self.move_speed,
             CameraMovement::Down => self.position -= up * self.move_speed,
+            CameraMovement::FovUp => self.fov_y = (self.fov_y+self.move_speed*2.0).clamp(10.0, 80.0),
+            CameraMovement::FovDown => self.fov_y = (self.fov_y-self.move_speed*2.0).clamp(10.0, 80.0),
         }
     }
 
@@ -171,6 +173,12 @@ impl Camera {
     pub fn update_aspect_ratio(&mut self, new_aspect_ratio: f32) {
         self.aspect_ratio = new_aspect_ratio;
     }
+    pub fn get_position(&self) -> &Point3<f32> {
+        &self.position
+    }
+    pub fn get_fov(&self) -> f32 {
+        self.fov_y
+    }
 }
 
 // Enum to define possible camera movement directions from keyboard input
@@ -182,4 +190,6 @@ pub enum CameraMovement {
     Right,
     Up,
     Down,
+    FovUp,
+    FovDown,
 }
