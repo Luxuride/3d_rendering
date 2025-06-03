@@ -90,7 +90,7 @@ pub struct Camera {
     z_far: f32,
     aspect_ratio: f32,
     sensitivity: f32,
-    move_speed: f32,
+    pub move_speed: f32,
 }
 
 impl Camera {

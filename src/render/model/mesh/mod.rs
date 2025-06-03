@@ -65,7 +65,6 @@ impl MeshBuilder {
         self
     }
     pub fn build(self, device: &wgpu::Device) -> Mesh {
-        println!("{:?}", self.vertices);
         Mesh::new(
             device,
             self.vertices,
@@ -102,7 +101,7 @@ impl From<Model> for MeshBuilder {
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ],
-                        tex_coords: [m.mesh.texcoords[i * 2], 1.0 - m.mesh.texcoords[i * 2 + 1]],
+                        tex_coords: [m.mesh.texcoords.get(i * 2).map(|x| *x).unwrap_or(0.0), 1.0 - m.mesh.texcoords.get(i * 2 + 1).map(|x| *x).unwrap_or(0.0)],
                         normal: [
                             m.mesh.normals[i * 3],
                             m.mesh.normals[i * 3 + 1],

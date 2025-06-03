@@ -42,15 +42,16 @@ impl Model {
         )?;
         let mut materials = Vec::new();
         for m in obj_materials? {
-            let Some(diffuse_texture) = m.diffuse_texture else {
-                continue;
-            };
-            let diffuse_texture = Texture::load_texture(
-                &dir.join(&diffuse_texture),
-                &diffuse_texture,
-                device,
-                queue,
-            )?;
+            let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
+                Texture::load_texture(
+                    &dir.join(&diffuse_texture),
+                    &diffuse_texture,
+                    device,
+                    queue,
+                )?
+            } else if let Some(diffuse) = m.diffuse {
+                Texture::from_color(device, queue, diffuse.into(), &m.name)?
+            } else {continue};
             let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &Texture::diffuse_bind_group_layout(&device),
                 entries: &[
