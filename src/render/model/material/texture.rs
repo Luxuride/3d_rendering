@@ -73,16 +73,8 @@ impl Texture {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        let view = texture.create_view(&Default::default());
+        let sampler = device.create_sampler(&Default::default());
 
         Ok(Self {
             texture,
@@ -96,14 +88,12 @@ impl Texture {
         color: (f32, f32, f32), // RGB
         label: &str,
     ) -> Result<Self> {
-        // Convert f32 (0.0-1.0) to u8 (0-255)
         let r = (color.0 * 255.0).round() as u8;
         let g = (color.1 * 255.0).round() as u8;
         let b = (color.2 * 255.0).round() as u8;
         let a = 255; // Fully opaque
 
-        // Create a 1x1 pixel RGBA image
-        let rgba_data = [r, g, b, a]; // A single pixel
+        let rgba_data = [r, g, b, a];
 
         let size = wgpu::Extent3d {
             width: 1,
@@ -124,31 +114,23 @@ impl Texture {
         });
 
         queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             &rgba_data,
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4), // 4 bytes per row for a 1-pixel wide texture
+                bytes_per_row: Some(4),
                 rows_per_image: Some(1),
             },
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge, // For 1x1, ClampToEdge makes most sense
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest, // Nearest is fine for a single pixel
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        let view = texture.create_view(&Default::default());
+        let sampler = device.create_sampler(&Default::default());
 
         Ok(Self {
             texture,
@@ -172,8 +154,6 @@ impl Texture {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    // This should match the filterable field of the
-                    // corresponding Texture entry above.
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
