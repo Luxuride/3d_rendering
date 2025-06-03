@@ -26,12 +26,15 @@
           mesa.drivers # GPU drivers
           libGL    # OpenGL shared library
           libGLU   # OpenGL Utility library
+
+          # Vulkan
+          libvulkan
         ];
       in
       {
         devShells.default = pkgs.mkShell rec {
-          nativeBuildInputs = with pkgs; [ 
-            pkg-config 
+          nativeBuildInputs = with pkgs; [
+            pkg-config
             xorg.xorgserver # For Xvfb
           ];
           buildInputs = with pkgs; [
@@ -40,7 +43,7 @@
             rustup
             rust-analyzer
             wayland
-            
+
             # Required dependencies for egui with glow backend
             xorg.libX11
             xorg.libXcursor
@@ -49,7 +52,7 @@
             xorg.libxcb        # Includes libxcb-render0-dev, libxcb-shape0-dev, libxcb-xfixes0-dev
             libxkbcommon       # libxkbcommon-dev
             openssl            # libssl-dev
-            
+
             # OpenGL libraries
             mesa               # OpenGL implementation
             libGL              # OpenGL shared library
@@ -58,17 +61,20 @@
             glxinfo            # GLX information utility
             virtualgl          # X server GL provider
             fontconfig
+
+            # Vulkan
+            vulkan-loader
           ];
 
           RUSTC_VERSION = overrides.toolchain.channel;
-          
+
           # https://github.com/rust-lang/rust-bindgen#environment-variables
           LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
-          
+
           # OpenGL environment variables for better compatibility
           LIBGL_ALWAYS_SOFTWARE = "1";     # Force software rendering
           LIBGL_DEBUG = "verbose";         # Verbose logging for OpenGL
-          
+
           shellHook = ''
             echo "Ensuring Rust toolchain '$RUSTC_VERSION' and component 'rust-analyzer' are installed..."
             rustup toolchain install $RUSTC_VERSION
@@ -76,7 +82,7 @@
             echo "Rust setup complete."
             echo "Required dependencies for egui with glow backend have been loaded."
             echo "OpenGL software rendering is enabled."
-            
+
             # Simple OpenGL detection
             if command -v glxinfo >/dev/null 2>&1; then
               echo "OpenGL information:"
@@ -88,10 +94,10 @@
           RUSTFLAGS = (builtins.map (a: ''-L ${a}/lib'') [
             # add libraries here (e.g. pkgs.libvmi)
           ]);
-          
+
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (buildInputs ++ nativeBuildInputs);
 
-          
+
           # Add glibc, clang, glib, and other headers to bindgen search path
           BINDGEN_EXTRA_CLANG_ARGS =
             let
@@ -105,4 +111,4 @@
         };
       }
     );
-} 
+}
