@@ -28,5 +28,5 @@ pub fn y_axis_mesh_builder() -> MeshBuilder {
 }
 
 pub fn z_axis_mesh_builder() -> MeshBuilder {
-    axis_mesh_builder().rotation(Quaternion::from_angle_y(Deg(90.0)))
+    axis_mesh_builder().rotation(Quaternion::from_angle_y(Deg(-90.0)))
 }

@@ -4,6 +4,8 @@ use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
 use eframe::{egui, egui_wgpu};
 use std::sync::{Arc, RwLock};
+use eframe::egui::Label;
+use crate::render::model::Model;
 
 pub struct Custom3d {
     camera: Camera,
@@ -12,14 +14,12 @@ pub struct Custom3d {
 
 impl Custom3d {
     pub fn new(cc: &eframe::CreationContext) -> Option<Self> {
-        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-        let device = &wgpu_render_state.device;
+        let wgpu_render_state = cc.wgpu_render_state.clone()?;
         let camera = CameraBuilder::default()
             .position(Point3::new(0.0, 0.0, -5.0))
             .build();
 
         let renderer = Arc::new(RwLock::new(RendererRenderResources::new(
-            device,
             wgpu_render_state,
             &camera,
         )));
@@ -50,8 +50,30 @@ impl eframe::App for Custom3d {
                 // Move down
                 self.camera.process_keyboard_input(CameraMovement::Down);
             }
+            if i.key_down(egui::Key::Q) {
+                self.camera.process_keyboard_input(CameraMovement::FovUp);
+            }
+            if i.key_down(egui::Key::E) {
+                self.camera.process_keyboard_input(CameraMovement::FovDown);
+            }
         });
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(Label::new("Camera:"));
+                ui.add(Label::new(format!("X: {:.2}", self.camera.get_position().x)));
+                ui.add(Label::new(format!("Y: {:.2}", self.camera.get_position().y)));
+                ui.add(Label::new(format!("Z: {:.2}", self.camera.get_position().z)));
+                ui.add(Label::new(format!("FOV: {:.2}", self.camera.get_fov())));
+            });
+            let button = ui.button("Add model");
+            if button.clicked() {
+                if let Some(file) = rfd::FileDialog::new().pick_file() {
+                    let renderer = &mut self.renderer.write().unwrap();
+                    let model = 
+                        Model::load_model(&file, &renderer.wgpu_render_state.device, &renderer.wgpu_render_state.queue).unwrap();
+                    renderer.models.push(model);
+                }
+            }
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
             });

@@ -36,7 +36,7 @@ impl Model {
                 ..Default::default()
             },
             |p| {
-                let mat = File::open(p).unwrap();
+                let mat = File::open(dir.join(p)).unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(mat))
             },
         )?;
@@ -84,9 +84,7 @@ impl Model {
             render_pass.set_bind_group(
                 2,
                 &self
-                    .materials
-                    .get(mesh.get_material())
-                    .unwrap()
+                    .materials[mesh.get_material()]
                     .diffuse_bind_group,
                 &[],
             );
@@ -143,7 +141,7 @@ impl Model {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: None,
                 unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Line,
+                polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
