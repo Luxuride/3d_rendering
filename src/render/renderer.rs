@@ -2,28 +2,33 @@ use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
+use cgmath::Vector3;
 use wgpu::Device;
 
-use crate::render::mesh::axis::{x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder};
-use crate::render::mesh::cube::cube_mesh_builder;
-use crate::render::mesh::Mesh;
-use crate::render::model::camera::camera_raw::CameraRaw;
-use crate::render::model::camera::Camera;
-use crate::render::model::transform::transform_raw::TransformRaw;
-use crate::render::model::vertex::vertex_raw::VertexRaw;
+use crate::render::buffers::camera::camera_raw::CameraRaw;
+use crate::render::buffers::camera::Camera;
+use crate::render::buffers::color::color_raw::ColorRaw;
+use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::model::mesh::axis::{
+    x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder,
+};
+use crate::render::model::mesh::cube::cube_mesh_builder;
+use crate::render::model::mesh::Mesh;
+use crate::render::model::Model;
 use eframe::wgpu::{
-    include_wgsl, BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState,
-    RenderPipeline,
+    BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState, RenderPipeline,
 };
 
 pub struct RendererRenderResources {
-    pipeline: RenderPipeline,
+    mesh_pipeline: RenderPipeline,
+    model_pipeline: RenderPipeline,
     // Camera buffer
     camera_bind_group: BindGroup,
     camera_uniform_buffer: Buffer,
 
     // Instance
-    instances: Vec<Mesh>,
+    meshes: Vec<Mesh>,
+    models: Vec<Model>,
 }
 
 impl RendererRenderResources {
@@ -36,33 +41,48 @@ impl RendererRenderResources {
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
         let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
-        let pipeline_layout = Self::pipeline_layout(
+
+        let mesh_pipeline = Mesh::pipeline(
             device,
             &[&camera_bind_group_layout, &transform_bind_group_layout],
+            wgpu_render_state.target_format.into(),
         );
-        let pipeline = Self::pipeline(
+        let model_pipeline = Model::pipeline(
             device,
-            pipeline_layout,
+            &[&camera_bind_group_layout, &transform_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
 
-        let mut instances = vec![];
-        let cube = cube_mesh_builder().build(device);
+        let mut meshes = vec![];
+        let cube = cube_mesh_builder()
+            .color(ColorRaw::new(1.0, 1.0, 0.0, 1.0))
+            .position(Vector3::new(-2.0, 0.0, 0.0))
+            .build(device);
         let (axis_x, axis_y, axis_z) = (
-            x_axis_mesh_builder().build(device),
-            y_axis_mesh_builder().build(device),
-            z_axis_mesh_builder().build(device),
+            x_axis_mesh_builder()
+                .color(ColorRaw::new(1.0, 0.0, 0.0, 1.0))
+                .build(device),
+            y_axis_mesh_builder()
+                .color(ColorRaw::new(0.0, 1.0, 0.0, 1.0))
+                .build(device),
+            z_axis_mesh_builder()
+                .color(ColorRaw::new(0.0, 0.0, 1.0, 1.0))
+                .build(device),
         );
-        instances.push(cube);
-        instances.push(axis_x);
-        instances.push(axis_y);
-        instances.push(axis_z);
+        meshes.push(cube);
+        meshes.push(axis_x);
+        meshes.push(axis_y);
+        meshes.push(axis_z);
+
+        let models = vec![];
 
         Self {
-            pipeline,
+            mesh_pipeline,
+            model_pipeline,
             camera_bind_group,
             camera_uniform_buffer,
-            instances,
+            meshes,
+            models,
         }
     }
 
@@ -72,28 +92,25 @@ impl RendererRenderResources {
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
-        for instance in self.instances.iter() {
+        for mesh in self.meshes.iter() {
             queue.write_buffer(
-                instance.get_transform_buffer(),
+                mesh.get_transform_buffer(),
                 0,
-                bytemuck::cast_slice(&[instance.get_transform().to_raw()]),
+                bytemuck::cast_slice(&[mesh.get_transform().to_raw()]),
             );
         }
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
-        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_pipeline(&self.mesh_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
-        for instance in self.instances.iter() {
-            render_pass.set_bind_group(1, instance.get_transform_bind_group(), &[]);
-
-            render_pass.set_vertex_buffer(0, instance.get_vertex_buffer().slice(..));
-            render_pass.set_index_buffer(
-                instance.get_index_buffer().slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
-            render_pass.draw_indexed(0..instance.get_num_indices(), 0, 0..1); // Draw 1 instance of this mesh
+        for mesh in self.meshes.iter() {
+            mesh.draw(render_pass);
+        }
+        render_pass.set_pipeline(&self.model_pipeline);
+        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+        for model in self.models.iter() {
+            model.draw(render_pass);
         }
     }
 }
@@ -173,63 +190,6 @@ impl RendererRenderResources {
                 resource: camera_uniform_buffer.as_entire_binding(),
             }],
             label: Some("camera_bind_group"),
-        })
-    }
-
-    fn pipeline_layout<'a>(
-        device: &Device,
-        bind_group_layouts: &'a [&'a BindGroupLayout],
-    ) -> wgpu::PipelineLayout {
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("pipeline_layout"),
-            bind_group_layouts,
-            push_constant_ranges: &[],
-        })
-    }
-
-    fn pipeline(
-        device: &Device,
-        pipeline_layout: wgpu::PipelineLayout,
-        color_target_state: ColorTargetState,
-    ) -> RenderPipeline {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader"),
-            source: include_wgsl!("./shader/shader.wgsl").source,
-        });
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::desc()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(color_target_state)],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Line,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
         })
     }
 }
