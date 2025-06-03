@@ -1,4 +1,5 @@
-use crate::render::model::camera::{Camera, CameraBuilder, CameraMovement};
+use crate::render::buffers::camera::{Camera, CameraBuilder, CameraMovement};
+use crate::render::model::mesh::Mesh;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
 use eframe::{egui, egui_wgpu};

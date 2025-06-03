@@ -1,4 +1,4 @@
-use crate::render::model::camera::Camera;
+use crate::render::buffers::camera::Camera;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Default)]
