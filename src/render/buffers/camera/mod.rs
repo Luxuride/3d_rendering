@@ -120,8 +120,12 @@ impl Camera {
             CameraMovement::Right => self.position += right * self.move_speed,
             CameraMovement::Up => self.position += up * self.move_speed,
             CameraMovement::Down => self.position -= up * self.move_speed,
-            CameraMovement::FovUp => self.fov_y = (self.fov_y+self.move_speed*2.0).clamp(10.0, 80.0),
-            CameraMovement::FovDown => self.fov_y = (self.fov_y-self.move_speed*2.0).clamp(10.0, 80.0),
+            CameraMovement::FovUp => {
+                self.fov_y = (self.fov_y + self.move_speed * 2.0).clamp(10.0, 80.0)
+            }
+            CameraMovement::FovDown => {
+                self.fov_y = (self.fov_y - self.move_speed * 2.0).clamp(10.0, 80.0)
+            }
         }
     }
 
