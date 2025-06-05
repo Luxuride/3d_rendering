@@ -1,8 +1,8 @@
+use cgmath::Vector3;
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
-use cgmath::Vector3;
 use wgpu::Device;
 
 use crate::render::buffers::camera::camera_raw::CameraRaw;
@@ -15,9 +15,7 @@ use crate::render::model::mesh::axis::{
 use crate::render::model::mesh::cube::cube_mesh_builder;
 use crate::render::model::mesh::Mesh;
 use crate::render::model::Model;
-use eframe::wgpu::{
-    BindGroup, BindGroupEntry, BindGroupLayout, Buffer, ColorTargetState, RenderPipeline,
-};
+use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
 
 pub struct RendererRenderResources {
     pub wgpu_render_state: RenderState,

@@ -1,11 +1,10 @@
 use crate::render::buffers::camera::{Camera, CameraBuilder, CameraMovement};
-use crate::render::model::mesh::Mesh;
+use crate::render::model::Model;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
+use eframe::egui::Label;
 use eframe::{egui, egui_wgpu};
 use std::sync::{Arc, RwLock};
-use eframe::egui::Label;
-use crate::render::model::Model;
 
 pub struct Custom3d {
     camera: Camera,
@@ -65,17 +64,30 @@ impl eframe::App for Custom3d {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add(Label::new("Camera:"));
-                ui.add(Label::new(format!("X: {:.2}", self.camera.get_position().x)));
-                ui.add(Label::new(format!("Y: {:.2}", self.camera.get_position().y)));
-                ui.add(Label::new(format!("Z: {:.2}", self.camera.get_position().z)));
+                ui.add(Label::new(format!(
+                    "X: {:.2}",
+                    self.camera.get_position().x
+                )));
+                ui.add(Label::new(format!(
+                    "Y: {:.2}",
+                    self.camera.get_position().y
+                )));
+                ui.add(Label::new(format!(
+                    "Z: {:.2}",
+                    self.camera.get_position().z
+                )));
                 ui.add(Label::new(format!("FOV: {:.2}", self.camera.get_fov())));
             });
             let button = ui.button("Add model");
             if button.clicked() {
                 if let Some(file) = rfd::FileDialog::new().pick_file() {
                     let renderer = &mut self.renderer.write().unwrap();
-                    let model =
-                        Model::load_model(&file, &renderer.wgpu_render_state.device, &renderer.wgpu_render_state.queue).unwrap();
+                    let model = Model::load_model(
+                        &file,
+                        &renderer.wgpu_render_state.device,
+                        &renderer.wgpu_render_state.queue,
+                    )
+                    .unwrap();
                     renderer.models.push(model);
                 }
             }

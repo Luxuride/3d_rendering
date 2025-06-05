@@ -101,7 +101,10 @@ impl From<Model> for MeshBuilder {
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ],
-                        tex_coords: [m.mesh.texcoords.get(i * 2).map(|x| *x).unwrap_or(0.0), 1.0 - m.mesh.texcoords.get(i * 2 + 1).map(|x| *x).unwrap_or(0.0)],
+                        tex_coords: [
+                            m.mesh.texcoords.get(i * 2).copied().unwrap_or(0.0),
+                            1.0 - m.mesh.texcoords.get(i * 2 + 1).copied().unwrap_or(0.0),
+                        ],
                         normal: [
                             m.mesh.normals[i * 3],
                             m.mesh.normals[i * 3 + 1],
@@ -129,9 +132,7 @@ pub struct Mesh {
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
     material: usize,
-    color: ColorRaw,
     color_bind_group: wgpu::BindGroup,
-    color_buffer: wgpu::Buffer,
 }
 
 impl Mesh {
@@ -191,8 +192,6 @@ impl Mesh {
             transform_buffer,
             transform_bind_group,
             material,
-            color,
-            color_buffer,
             color_bind_group,
         }
     }
@@ -231,7 +230,7 @@ impl Mesh {
         bind_group_layouts: &'a [&'a BindGroupLayout],
     ) -> wgpu::PipelineLayout {
         let mut bind_group_layouts = bind_group_layouts.to_vec();
-        let texture_bind_group = ColorRaw::color_bind_group_layout(&device);
+        let texture_bind_group = ColorRaw::color_bind_group_layout(device);
         bind_group_layouts.push(&texture_bind_group);
         let bind_group_layouts = bind_group_layouts.as_slice();
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

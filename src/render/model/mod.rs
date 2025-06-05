@@ -8,7 +8,6 @@ use eframe::wgpu;
 use eframe::wgpu::{include_wgsl, BindGroupLayout, ColorTargetState, Device, RenderPipeline};
 use std::fs::File;
 use std::io::BufReader;
-use std::ops::Range;
 use std::path::Path;
 
 mod material;
@@ -43,17 +42,14 @@ impl Model {
         let mut materials = Vec::new();
         for m in obj_materials? {
             let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
-                Texture::load_texture(
-                    &dir.join(&diffuse_texture),
-                    &diffuse_texture,
-                    device,
-                    queue,
-                )?
+                Texture::load_texture(&dir.join(&diffuse_texture), &diffuse_texture, device, queue)?
             } else if let Some(diffuse) = m.diffuse {
                 Texture::from_color(device, queue, diffuse.into(), &m.name)?
-            } else {continue};
+            } else {
+                continue;
+            };
             let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &Texture::diffuse_bind_group_layout(&device),
+                layout: &Texture::diffuse_bind_group_layout(device),
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -84,9 +80,7 @@ impl Model {
             render_pass.set_bind_group(1, mesh.get_transform_bind_group(), &[]);
             render_pass.set_bind_group(
                 2,
-                &self
-                    .materials[mesh.get_material()]
-                    .diffuse_bind_group,
+                &self.materials[mesh.get_material()].diffuse_bind_group,
                 &[],
             );
 
@@ -102,7 +96,7 @@ impl Model {
         bind_group_layouts: &'a [&'a BindGroupLayout],
     ) -> wgpu::PipelineLayout {
         let mut bind_group_layouts = bind_group_layouts.to_vec();
-        let texture_bind_group = Texture::diffuse_bind_group_layout(&device);
+        let texture_bind_group = Texture::diffuse_bind_group_layout(device);
         bind_group_layouts.push(&texture_bind_group);
         let bind_group_layouts = bind_group_layouts.as_slice();
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
