@@ -1,28 +1,82 @@
-use crate::render::buffers::vertex::vertex_raw::VertexRaw;
+use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::buffers::transform::Transform;
 use crate::render::model;
 use crate::render::model::material::texture::Texture;
 use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
 use anyhow::Result;
 use eframe::wgpu;
-use eframe::wgpu::{include_wgsl, BindGroupLayout, ColorTargetState, Device, RenderPipeline};
+use eframe::wgpu::util::DeviceExt;
+use eframe::wgpu::{Device, Queue};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-mod material;
+pub mod material;
 pub mod mesh;
+pub mod outline;
 
 pub struct Model {
-    pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
+    meshes: Vec<Mesh>,
+    materials: Vec<Material>,
+    transform: Transform,
+    transform_buffer: wgpu::Buffer,
+    transform_bind_group: wgpu::BindGroup,
 }
 
 impl Model {
+    pub fn new(
+        device: &Device,
+        meshes: Vec<Mesh>,
+        materials: Vec<Material>,
+        transform: Transform,
+    ) -> Self {
+        let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(transform.to_raw().get_model()),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
+        let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &transform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: transform_buffer.as_entire_binding(),
+            }],
+            label: Some("per_mesh_transform_bind_group"),
+        });
+        Self {
+            meshes,
+            materials,
+            transform,
+            transform_buffer,
+            transform_bind_group,
+        }
+    }
+    pub fn clone_untextured(&self, device: &Device, queue: &Queue) -> Self {
+        let mut new_meshes = self.meshes.clone();
+        for mesh in new_meshes.iter_mut() {
+            mesh.material = 0;
+        }
+        let diffuse_texture =
+            Texture::from_color(device, queue, (1.0, 0.0, 0.0), "color_texture").unwrap();
+        let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
+        Self::new(
+            device,
+            new_meshes,
+            vec![Material {
+                name: "color_material".into(),
+                diffuse_texture,
+                diffuse_bind_group,
+            }],
+            self.transform,
+        )
+    }
     pub fn load_model(
         file_path: &Path,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        transform: Transform,
     ) -> Result<Self> {
         let dir = file_path.parent().unwrap();
         let obj = File::open(file_path)?;
@@ -48,20 +102,7 @@ impl Model {
             } else {
                 continue;
             };
-            let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &Texture::diffuse_bind_group_layout(device),
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-                label: None,
-            });
+            let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
             materials.push(model::Material {
                 name: m.name,
                 diffuse_texture,
@@ -72,12 +113,12 @@ impl Model {
             .into_iter()
             .map(|m| MeshBuilder::from(m).build(device))
             .collect::<Vec<_>>();
-        Ok(Self { meshes, materials })
+        Ok(Self::new(device, meshes, materials, transform))
     }
 
     pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_bind_group(1, self.get_transform_bind_group(), &[]);
         for mesh in self.meshes.iter() {
-            render_pass.set_bind_group(1, mesh.get_transform_bind_group(), &[]);
             render_pass.set_bind_group(
                 2,
                 &self.materials[mesh.get_material()].diffuse_bind_group,
@@ -90,65 +131,22 @@ impl Model {
             render_pass.draw_indexed(0..mesh.get_num_indices(), 0, 0..1);
         }
     }
-
-    fn pipeline_layout<'a>(
-        device: &Device,
-        bind_group_layouts: &'a [&'a BindGroupLayout],
-    ) -> wgpu::PipelineLayout {
-        let mut bind_group_layouts = bind_group_layouts.to_vec();
-        let texture_bind_group = Texture::diffuse_bind_group_layout(device);
-        bind_group_layouts.push(&texture_bind_group);
-        let bind_group_layouts = bind_group_layouts.as_slice();
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("pipeline_layout"),
-            bind_group_layouts,
-            push_constant_ranges: &[],
-        })
+    pub fn get_materials(&self) -> &Vec<Material> {
+        &self.materials
     }
-    pub fn pipeline(
-        device: &Device,
-        bind_group_layouts: &[&BindGroupLayout],
-        color_target_state: ColorTargetState,
-    ) -> RenderPipeline {
-        let pipeline_layout = Self::pipeline_layout(device, bind_group_layouts);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("model_shader"),
-            source: include_wgsl!("../shader/model_shader.wgsl").source,
-        });
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[VertexRaw::desc()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(color_target_state)],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        })
+    pub fn get_meshes(&self) -> &Vec<Mesh> {
+        &self.meshes
+    }
+    pub fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+    pub fn get_transform_mut(&mut self) -> &mut Transform {
+        &mut self.transform
+    }
+    pub fn get_transform_buffer(&self) -> &wgpu::Buffer {
+        &self.transform_buffer
+    }
+    pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
+        &self.transform_bind_group
     }
 }

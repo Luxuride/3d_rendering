@@ -1,4 +1,4 @@
-use cgmath::Vector3;
+use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
@@ -7,27 +7,32 @@ use wgpu::Device;
 
 use crate::render::buffers::camera::camera_raw::CameraRaw;
 use crate::render::buffers::camera::Camera;
-use crate::render::buffers::color::color_raw::ColorRaw;
 use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::buffers::transform::Transform;
 use crate::render::model::mesh::axis::{
     x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder,
 };
 use crate::render::model::mesh::cube::cube_mesh_builder;
-use crate::render::model::mesh::Mesh;
 use crate::render::model::Model;
+use crate::render::pipeline::{model_pipeline, outline_pipeline, wireframe_pipeline};
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
 
 pub struct RendererRenderResources {
     pub wgpu_render_state: RenderState,
 
-    mesh_pipeline: RenderPipeline,
+    // Pipelines
+    wireframe_pipeline: RenderPipeline,
     model_pipeline: RenderPipeline,
+    outline_pipeline: RenderPipeline,
+
     // Camera buffer
     camera_bind_group: BindGroup,
     camera_uniform_buffer: Buffer,
 
-    // Instance
-    meshes: Vec<Mesh>,
+    // Instances
+    pub outline: Option<Model>,
+    pub axis: [Model; 3],
+    pub wireframe_models: Vec<Model>,
     pub models: Vec<Model>,
 }
 
@@ -43,47 +48,64 @@ impl RendererRenderResources {
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
         let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
 
-        let mesh_pipeline = Mesh::pipeline(
+        let wireframe_pipeline = wireframe_pipeline(
             device,
             &[&camera_bind_group_layout, &transform_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
-        let model_pipeline = Model::pipeline(
+        let model_pipeline = model_pipeline(
+            device,
+            &[&camera_bind_group_layout, &transform_bind_group_layout],
+            wgpu_render_state.target_format.into(),
+        );
+        let outline_pipeline = outline_pipeline(
             device,
             &[&camera_bind_group_layout, &transform_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
 
-        let mut meshes = vec![];
-        let cube = cube_mesh_builder()
-            .color(ColorRaw::new(1.0, 1.0, 0.0, 1.0))
-            .position(Vector3::new(-2.0, 0.0, 0.0))
-            .build(device);
-        let (axis_x, axis_y, axis_z) = (
-            x_axis_mesh_builder()
-                .color(ColorRaw::new(1.0, 0.0, 0.0, 1.0))
-                .build(device),
-            y_axis_mesh_builder()
-                .color(ColorRaw::new(0.0, 1.0, 0.0, 1.0))
-                .build(device),
-            z_axis_mesh_builder()
-                .color(ColorRaw::new(0.0, 0.0, 1.0, 1.0))
-                .build(device),
+        let mut wireframe_models = vec![];
+        let cube = cube_mesh_builder().build(device).to_model(
+            device,
+            &wgpu_render_state.queue,
+            (1.0, 1.0, 0.0),
+            Transform::default(),
         );
-        meshes.push(cube);
-        meshes.push(axis_x);
-        meshes.push(axis_y);
-        meshes.push(axis_z);
+        wireframe_models.push(cube);
+
+        let axis = [
+            x_axis_mesh_builder().build(device).to_model(
+                device,
+                &wgpu_render_state.queue,
+                (1.0, 0.0, 0.0),
+                Transform::default(),
+            ),
+            y_axis_mesh_builder().build(device).to_model(
+                device,
+                &wgpu_render_state.queue,
+                (0.0, 1.0, 0.0),
+                Transform::default().rotation(Quaternion::from_angle_z(Deg(90.0))),
+            ),
+            z_axis_mesh_builder().build(device).to_model(
+                device,
+                &wgpu_render_state.queue,
+                (0.0, 0.0, 1.0),
+                Transform::default().rotation(Quaternion::from_angle_y(Deg(-90.0))),
+            ),
+        ];
 
         let models = vec![];
 
         Self {
-            mesh_pipeline,
+            wireframe_pipeline,
             model_pipeline,
+            outline_pipeline,
             camera_bind_group,
             camera_uniform_buffer,
-            meshes,
+            wireframe_models,
             models,
+            axis,
+            outline: None,
             wgpu_render_state,
         }
     }
@@ -94,24 +116,39 @@ impl RendererRenderResources {
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
-        for mesh in self.meshes.iter() {
+        for model in self.models.iter().chain(self.wireframe_models.iter()) {
             queue.write_buffer(
-                mesh.get_transform_buffer(),
+                model.get_transform_buffer(),
                 0,
-                bytemuck::cast_slice(&[mesh.get_transform().to_raw()]),
+                bytemuck::cast_slice(&[model.get_transform().to_raw()]),
+            );
+        }
+        if let Some(model) = &self.outline {
+            queue.write_buffer(
+                model.get_transform_buffer(),
+                0,
+                bytemuck::cast_slice(&[model.get_transform().to_raw()]),
             );
         }
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
-        render_pass.set_pipeline(&self.mesh_pipeline);
+        render_pass.set_pipeline(&self.wireframe_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        for mesh in self.meshes.iter() {
-            mesh.draw(render_pass);
+        for model in self.wireframe_models.iter() {
+            model.draw(render_pass);
+        }
+        for axis in self.axis.iter() {
+            axis.draw(render_pass);
         }
         render_pass.set_pipeline(&self.model_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
         for model in self.models.iter() {
+            model.draw(render_pass);
+        }
+        if let Some(model) = &self.outline {
+            render_pass.set_pipeline(&self.outline_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             model.draw(render_pass);
         }
     }
