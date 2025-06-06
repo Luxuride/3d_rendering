@@ -42,6 +42,7 @@ fn vs_main_outline(
     var out: VertexOutput;
     out.tex_coords = in.tex_coords;
     out.normal = in.normal;
+    // Inverted Hull Outline
     let extruded_position = in.position + in.normal * 0.02;
     out.clip_position = camera.view_proj * transformation.model * vec4<f32>(extruded_position, 1.0);
     return out;
