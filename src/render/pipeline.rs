@@ -45,7 +45,7 @@ pub fn outline_pipeline(
         bind_group_layouts,
         color_target_state,
         PolygonMode::Fill,
-        Some(Face::Front),
+        Some(Face::Front), // Inverted Hull Front Face Cull
         Some("vs_main_outline"),
     )
 }

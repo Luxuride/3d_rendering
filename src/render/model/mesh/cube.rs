@@ -3,14 +3,16 @@ use crate::render::model::mesh::MeshBuilder;
 
 #[rustfmt::skip]
 const VERTICES: [VertexRaw; 8] = [
-    VertexRaw { position: [-1.0, -1.0, 1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [1.0, -1.0, 1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-1.0, 1.0, 1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [1.0, 1.0, 1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-1.0, 1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [1.0, 1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    // Ignore normals by setting them to 0
+    // Ignore texture coords by setting them to 0
+    VertexRaw { position: [-0.5, -0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [0.5, -0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [-0.5, 0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [0.5, 0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [-0.5, -0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [0.5, -0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [-0.5, 0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
+    VertexRaw { position: [0.5, 0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
 ];
 
 #[rustfmt::skip]
