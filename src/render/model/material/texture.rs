@@ -1,6 +1,6 @@
 use anyhow::Result;
 use eframe::wgpu;
-use eframe::wgpu::{BindGroupLayout, Device};
+use eframe::wgpu::{BindGroup, BindGroupLayout, Device};
 use image::GenericImageView;
 use std::path::Path;
 
@@ -159,6 +159,22 @@ impl Texture {
                 },
             ],
             label: Some("texture_bind_group_layout"),
+        })
+    }
+    pub fn diffuse_bind_group(&self, device: &Device) -> BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &Texture::diffuse_bind_group_layout(device),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+            label: None,
         })
     }
 }

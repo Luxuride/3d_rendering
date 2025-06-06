@@ -1,4 +1,6 @@
 use crate::render::buffers::camera::{Camera, CameraBuilder, CameraMovement};
+use crate::render::buffers::transform::Transform;
+use crate::render::model::mesh::Mesh;
 use crate::render::model::Model;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
@@ -9,6 +11,13 @@ use std::sync::{Arc, RwLock};
 pub struct Custom3d {
     camera: Camera,
     renderer: Arc<RwLock<RendererRenderResources>>,
+    selected_model: SelectedModel,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum SelectedModel {
+    Wireframe(usize),
+    Model(usize),
 }
 
 impl Custom3d {
@@ -23,7 +32,11 @@ impl Custom3d {
             wgpu_render_state,
             &camera,
         )));
-        Some(Self { camera, renderer })
+        Some(Self {
+            camera,
+            renderer,
+            selected_model: SelectedModel::Wireframe(0),
+        })
     }
 }
 
@@ -80,20 +93,96 @@ impl eframe::App for Custom3d {
             });
             let button = ui.button("Add model");
             if button.clicked() {
-                if let Some(file) = rfd::FileDialog::new().pick_file() {
-                    let renderer = &mut self.renderer.write().unwrap();
-                    let model = Model::load_model(
-                        &file,
-                        &renderer.wgpu_render_state.device,
-                        &renderer.wgpu_render_state.queue,
-                    )
-                    .unwrap();
-                    renderer.models.push(model);
-                }
+                let renderer = self.renderer.clone();
+                std::thread::spawn(move || {
+                    if let Some(file) = rfd::FileDialog::new()
+                        .add_filter("obj", &["obj"])
+                        .pick_file()
+                    {
+                        let model = {
+                            let wgpu_render_state =
+                                &renderer.read().unwrap().wgpu_render_state.clone();
+                            Model::load_model(
+                                &file,
+                                &wgpu_render_state.device,
+                                &wgpu_render_state.queue,
+                                Transform::default(),
+                            )
+                        };
+                        if let Ok(model) = model {
+                            let renderer = &mut renderer.write().unwrap();
+                            renderer.models.push(model);
+                        } else {
+                            println!("Error loading model");
+                        }
+                    }
+                });
             }
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
             });
+        });
+        egui::SidePanel::right("right_panel").show(ctx, |ui| {
+            {
+                let renderer = &self.renderer.read().unwrap();
+                for (model_index, model) in renderer.wireframe_models.iter().enumerate() {
+                    ui.radio_value(
+                        &mut self.selected_model,
+                        SelectedModel::Wireframe(model_index),
+                        format!("Wireframe {}", model_index),
+                    );
+                }
+                for (model_index, model) in renderer.models.iter().enumerate() {
+                    ui.radio_value(
+                        &mut self.selected_model,
+                        SelectedModel::Model(model_index),
+                        format!("Model {}", model_index),
+                    );
+                }
+            }
+            {
+                let renderer = &mut self.renderer.write().unwrap();
+                let selected_model = match self.selected_model {
+                    SelectedModel::Wireframe(model_index) => {
+                        renderer.wireframe_models.get_mut(model_index)
+                    }
+                    SelectedModel::Model(model_index) => renderer.models.get_mut(model_index),
+                };
+                if let Some(selected_model) = selected_model {
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().position.x,
+                    ));
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().position.y,
+                    ));
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().position.z,
+                    ));
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().scale.x,
+                    ));
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().scale.y,
+                    ));
+                    ui.add(egui::DragValue::new(
+                        &mut selected_model.get_transform_mut().scale.z,
+                    ));
+                }
+            };
+            let renderer = &mut self.renderer.write().unwrap();
+            let device = &renderer.wgpu_render_state.device.clone();
+            let queue = &renderer.wgpu_render_state.queue.clone();
+            let selected_model = match self.selected_model {
+                SelectedModel::Wireframe(model_index) => renderer.wireframe_models.get(model_index),
+                SelectedModel::Model(model_index) => renderer.models.get(model_index),
+            }
+            .map(|model| model.clone_untextured(device, queue));
+            if let Some(mut selected_model) = selected_model {
+                selected_model.get_transform_mut().scale.x *= 1.1;
+                selected_model.get_transform_mut().scale.y *= 1.1;
+                selected_model.get_transform_mut().scale.z *= 1.1;
+                renderer.outline = Some(selected_model);
+            }
         });
         ctx.request_repaint();
     }
