@@ -21,7 +21,7 @@ impl Default for Transform {
 }
 
 impl Transform {
-    pub(crate) fn to_raw(&self) -> TransformRaw {
+    pub(crate) fn to_raw(self) -> TransformRaw {
         let transform = cgmath::Matrix4::from_translation(self.position)
             * cgmath::Matrix4::from(self.rotation)
             * cgmath::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);

@@ -1,37 +1,20 @@
 pub mod axis;
 pub mod cube;
 
-use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use crate::render::model::material::texture::Texture;
 use crate::render::model::material::Material;
 use crate::render::model::Model;
-use cgmath::{Quaternion, Vector3, Zero};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
 
+#[derive(Default)]
 pub struct MeshBuilder {
     vertices: Vec<VertexRaw>,
     indices: Vec<u32>,
-    position: Vector3<f32>,
-    rotation: Quaternion<f32>,
-    scale: Vector3<f32>,
     material: usize,
-}
-
-impl Default for MeshBuilder {
-    fn default() -> Self {
-        Self {
-            vertices: vec![],
-            indices: vec![],
-            position: Vector3::zero(),
-            rotation: Quaternion::zero(),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-            material: 0,
-        }
-    }
 }
 
 impl MeshBuilder {
@@ -43,34 +26,12 @@ impl MeshBuilder {
         self.indices = indices;
         self
     }
-    pub fn position(mut self, position: Vector3<f32>) -> Self {
-        self.position = position;
-        self
-    }
-    pub fn rotation(mut self, rotation: Quaternion<f32>) -> Self {
-        self.rotation = rotation;
-        self
-    }
     pub fn material(mut self, material: usize) -> Self {
         self.material = material;
         self
     }
-    pub fn scale(mut self, scale: Vector3<f32>) -> Self {
-        self.scale = scale;
-        self
-    }
     pub fn build(self, device: &wgpu::Device) -> Mesh {
-        Mesh::new(
-            device,
-            self.vertices,
-            self.indices,
-            Transform {
-                position: self.position,
-                rotation: self.rotation,
-                scale: self.scale,
-            },
-            self.material,
-        )
+        Mesh::new(device, self.vertices, self.indices, self.material)
     }
 }
 
@@ -133,7 +94,6 @@ impl Mesh {
         device: &wgpu::Device,
         vertices: Vec<VertexRaw>,
         indices: Vec<u32>,
-        transform: Transform,
         material: usize,
     ) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

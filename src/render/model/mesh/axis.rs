@@ -1,6 +1,5 @@
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use crate::render::model::mesh::MeshBuilder;
-use cgmath::{Deg, Quaternion, Rotation3};
 
 #[rustfmt::skip]
 const VERTICES: [VertexRaw; 2] = [
@@ -24,9 +23,8 @@ pub fn x_axis_mesh_builder() -> MeshBuilder {
 }
 
 pub fn y_axis_mesh_builder() -> MeshBuilder {
-    axis_mesh_builder().rotation(Quaternion::from_angle_z(Deg(90.0)))
+    axis_mesh_builder()
 }
-
 pub fn z_axis_mesh_builder() -> MeshBuilder {
-    axis_mesh_builder().rotation(Quaternion::from_angle_y(Deg(-90.0)))
+    axis_mesh_builder()
 }

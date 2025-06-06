@@ -1,4 +1,4 @@
-use cgmath::{Deg, Quaternion, Rotation3, Vector3};
+use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
@@ -13,7 +13,6 @@ use crate::render::model::mesh::axis::{
     x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder,
 };
 use crate::render::model::mesh::cube::cube_mesh_builder;
-use crate::render::model::outline::Outline;
 use crate::render::model::Model;
 use crate::render::pipeline::{model_pipeline, outline_pipeline, wireframe_pipeline};
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
@@ -66,15 +65,12 @@ impl RendererRenderResources {
         );
 
         let mut wireframe_models = vec![];
-        let cube = cube_mesh_builder()
-            .position(Vector3::new(-2.0, 0.0, 0.0))
-            .build(device)
-            .to_model(
-                device,
-                &wgpu_render_state.queue,
-                (1.0, 1.0, 0.0),
-                Transform::default(),
-            );
+        let cube = cube_mesh_builder().build(device).to_model(
+            device,
+            &wgpu_render_state.queue,
+            (1.0, 1.0, 0.0),
+            Transform::default(),
+        );
         wireframe_models.push(cube);
 
         let axis = [

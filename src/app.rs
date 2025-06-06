@@ -1,6 +1,5 @@
 use crate::render::buffers::camera::{Camera, CameraBuilder, CameraMovement};
 use crate::render::buffers::transform::Transform;
-use crate::render::model::mesh::Mesh;
 use crate::render::model::Model;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
@@ -125,14 +124,14 @@ impl eframe::App for Custom3d {
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
             {
                 let renderer = &self.renderer.read().unwrap();
-                for (model_index, model) in renderer.wireframe_models.iter().enumerate() {
+                for (model_index, _) in renderer.wireframe_models.iter().enumerate() {
                     ui.radio_value(
                         &mut self.selected_model,
                         SelectedModel::Wireframe(model_index),
                         format!("Wireframe {}", model_index),
                     );
                 }
-                for (model_index, model) in renderer.models.iter().enumerate() {
+                for (model_index, _) in renderer.models.iter().enumerate() {
                     ui.radio_value(
                         &mut self.selected_model,
                         SelectedModel::Model(model_index),
