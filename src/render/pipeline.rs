@@ -16,6 +16,7 @@ pub fn model_pipeline(
         color_target_state,
         PolygonMode::Fill,
         None,
+        Some("vs_main"),
     )
 }
 
@@ -30,6 +31,7 @@ pub fn wireframe_pipeline(
         color_target_state,
         PolygonMode::Line,
         None,
+        Some("vs_main"),
     )
 }
 
@@ -44,6 +46,7 @@ pub fn outline_pipeline(
         color_target_state,
         PolygonMode::Fill,
         Some(Face::Front),
+        Some("vs_main_outline"),
     )
 }
 
@@ -67,6 +70,7 @@ fn pipeline(
     color_target_state: ColorTargetState,
     polygon_mode: PolygonMode,
     cull_mode: Option<Face>,
+    entry_point: Option<&str>,
 ) -> RenderPipeline {
     let pipeline_layout = pipeline_layout(device, bind_group_layouts);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -78,7 +82,7 @@ fn pipeline(
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
-            entry_point: Some("vs_main"),
+            entry_point,
             buffers: &[VertexRaw::desc()],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },

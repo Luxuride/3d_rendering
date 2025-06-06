@@ -5,18 +5,22 @@ use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
 use eframe::egui::Label;
 use eframe::{egui, egui_wgpu};
+use std::sync::atomic::AtomicU8;
 use std::sync::{Arc, RwLock};
 
 pub struct Custom3d {
     camera: Camera,
     renderer: Arc<RwLock<RendererRenderResources>>,
     selected_model: SelectedModel,
+    loading: Arc<AtomicU8>,
+    show_help: bool,
 }
 
 #[derive(PartialEq, Clone, Copy)]
 enum SelectedModel {
     Wireframe(usize),
     Model(usize),
+    None,
 }
 
 impl Custom3d {
@@ -34,7 +38,9 @@ impl Custom3d {
         Some(Self {
             camera,
             renderer,
-            selected_model: SelectedModel::Wireframe(0),
+            selected_model: SelectedModel::None,
+            loading: Arc::new(AtomicU8::new(0)),
+            show_help: false,
         })
     }
 }
@@ -73,6 +79,40 @@ impl eframe::App for Custom3d {
             }
             self.camera.move_speed = 0.1;
         });
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("About", |ui| {
+                    let help_button = ui.button("Help");
+                    if help_button.clicked() {
+                        self.show_help = true;
+                        ui.close_menu();
+                    }
+                });
+            });
+        });
+        if self.show_help {
+            egui::Window::new("Help")
+                .resizable(false)
+                .collapsible(false)
+                .open(&mut self.show_help) // This allows closing the window with the 'x' button
+                .show(ctx, |ui| {
+                    ui.label("LMB down: Look around");
+                    ui.label("W: Forward");
+                    ui.label("A: Left");
+                    ui.label("S: Back");
+                    ui.label("D: Right");
+                    ui.label("Space: Up");
+                    ui.label("C: Down");
+                    ui.label("Shift: Go fast");
+                    ui.label("Q: FOV Up");
+                    ui.label("E: FOV Down");
+                });
+        }
+        egui::SidePanel::right("right_panel")
+            .resizable(false)
+            .show(ctx, |ui| {
+                self.handle_right_panel(ui);
+            });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.add(Label::new("Camera:"));
@@ -91,6 +131,11 @@ impl eframe::App for Custom3d {
                 ui.add(Label::new(format!("FOV: {:.2}", self.camera.get_fov())));
             });
             let button = ui.button("Add model");
+            ui.add(Label::new(format!(
+                "Loading {} models",
+                self.loading.load(std::sync::atomic::Ordering::Relaxed)
+            )));
+            let loading = self.loading.clone();
             if button.clicked() {
                 let renderer = self.renderer.clone();
                 std::thread::spawn(move || {
@@ -98,6 +143,7 @@ impl eframe::App for Custom3d {
                         .add_filter("obj", &["obj"])
                         .pick_file()
                     {
+                        loading.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let model = {
                             let wgpu_render_state =
                                 &renderer.read().unwrap().wgpu_render_state.clone();
@@ -107,81 +153,21 @@ impl eframe::App for Custom3d {
                                 &wgpu_render_state.queue,
                                 Transform::default(),
                             )
+                            .ok()
                         };
-                        if let Ok(model) = model {
+                        if let Some(model) = model {
                             let renderer = &mut renderer.write().unwrap();
                             renderer.models.push(model);
                         } else {
                             println!("Error loading model");
                         }
+                        loading.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     }
                 });
             }
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
             });
-        });
-        egui::SidePanel::right("right_panel").show(ctx, |ui| {
-            {
-                let renderer = &self.renderer.read().unwrap();
-                for (model_index, _) in renderer.wireframe_models.iter().enumerate() {
-                    ui.radio_value(
-                        &mut self.selected_model,
-                        SelectedModel::Wireframe(model_index),
-                        format!("Wireframe {}", model_index),
-                    );
-                }
-                for (model_index, _) in renderer.models.iter().enumerate() {
-                    ui.radio_value(
-                        &mut self.selected_model,
-                        SelectedModel::Model(model_index),
-                        format!("Model {}", model_index),
-                    );
-                }
-            }
-            {
-                let renderer = &mut self.renderer.write().unwrap();
-                let selected_model = match self.selected_model {
-                    SelectedModel::Wireframe(model_index) => {
-                        renderer.wireframe_models.get_mut(model_index)
-                    }
-                    SelectedModel::Model(model_index) => renderer.models.get_mut(model_index),
-                };
-                if let Some(selected_model) = selected_model {
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().position.x,
-                    ));
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().position.y,
-                    ));
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().position.z,
-                    ));
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().scale.x,
-                    ));
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().scale.y,
-                    ));
-                    ui.add(egui::DragValue::new(
-                        &mut selected_model.get_transform_mut().scale.z,
-                    ));
-                }
-            };
-            let renderer = &mut self.renderer.write().unwrap();
-            let device = &renderer.wgpu_render_state.device.clone();
-            let queue = &renderer.wgpu_render_state.queue.clone();
-            let selected_model = match self.selected_model {
-                SelectedModel::Wireframe(model_index) => renderer.wireframe_models.get(model_index),
-                SelectedModel::Model(model_index) => renderer.models.get(model_index),
-            }
-            .map(|model| model.clone_untextured(device, queue));
-            if let Some(mut selected_model) = selected_model {
-                selected_model.get_transform_mut().scale.x *= 1.1;
-                selected_model.get_transform_mut().scale.y *= 1.1;
-                selected_model.get_transform_mut().scale.z *= 1.1;
-                renderer.outline = Some(selected_model);
-            }
         });
         ctx.request_repaint();
     }
@@ -201,5 +187,66 @@ impl Custom3d {
             rect,
             RendererCallback::new(self.camera.get_camera_uniform(), self.renderer.clone()),
         ));
+    }
+
+    pub fn handle_right_panel(&mut self, ui: &mut egui::Ui) {
+        let renderer = &mut self.renderer.write().unwrap();
+        ui.radio_value(
+            &mut self.selected_model,
+            SelectedModel::None,
+            "None".to_string(),
+        );
+        for (model_index, _) in renderer.wireframe_models.iter().enumerate() {
+            ui.radio_value(
+                &mut self.selected_model,
+                SelectedModel::Wireframe(model_index),
+                format!("Wireframe {}", model_index),
+            );
+        }
+        for (model_index, _) in renderer.models.iter().enumerate() {
+            ui.radio_value(
+                &mut self.selected_model,
+                SelectedModel::Model(model_index),
+                format!("Model {}", model_index),
+            );
+        }
+        let selected_model = match self.selected_model {
+            SelectedModel::Wireframe(model_index) => renderer.wireframe_models.get_mut(model_index),
+            SelectedModel::Model(model_index) => renderer.models.get_mut(model_index),
+            SelectedModel::None => None,
+        };
+        if let Some(selected_model) = selected_model {
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().position.x,
+            ));
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().position.y,
+            ));
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().position.z,
+            ));
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().scale.x,
+            ));
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().scale.y,
+            ));
+            ui.add(egui::DragValue::new(
+                &mut selected_model.get_transform_mut().scale.z,
+            ));
+        }
+        let device = &renderer.wgpu_render_state.device.clone();
+        let queue = &renderer.wgpu_render_state.queue.clone();
+        let selected_model = match self.selected_model {
+            SelectedModel::Wireframe(model_index) => renderer.wireframe_models.get(model_index),
+            SelectedModel::Model(model_index) => renderer.models.get(model_index),
+            SelectedModel::None => None,
+        }
+        .map(|model| model.clone_untextured(device, queue));
+        if let Some(selected_model) = selected_model {
+            renderer.outline = Some(selected_model);
+        } else {
+            renderer.outline = None;
+        }
     }
 }
