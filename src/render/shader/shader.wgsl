@@ -35,6 +35,18 @@ fn vs_main(
     return out;
 }
 
+@vertex
+fn vs_main_outline(
+    in: VertexInput,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = in.tex_coords;
+    out.normal = in.normal;
+    let extruded_position = in.position + in.normal * 0.02;
+    out.clip_position = camera.view_proj * transformation.model * vec4<f32>(extruded_position, 1.0);
+    return out;
+}
+
 @group(2) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(2) @binding(1)
