@@ -4,14 +4,14 @@ use eframe::wgpu::{BindGroup, BindGroupLayout, Device};
 use image::GenericImageView;
 use std::path::Path;
 
-pub struct Texture {
+pub struct TextureRaw {
     #[allow(unused)]
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
 
-impl Texture {
+impl TextureRaw {
     pub fn load_texture(
         file_path: &Path,
         label: &str,
@@ -163,7 +163,7 @@ impl Texture {
     }
     pub fn diffuse_bind_group(&self, device: &Device) -> BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &Texture::diffuse_bind_group_layout(device),
+            layout: &Self::diffuse_bind_group_layout(device),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

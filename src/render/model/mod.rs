@@ -1,8 +1,6 @@
 use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::model;
-use crate::render::model::material::texture::Texture;
-use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
 use anyhow::Result;
 use eframe::wgpu;
@@ -11,10 +9,12 @@ use eframe::wgpu::{Device, Queue};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use crate::render::buffers::texture::texture_raw::TextureRaw;
+use crate::render::model::material::Material;
 
-pub mod material;
 pub mod mesh;
 pub mod outline;
+mod material;
 
 pub struct Model {
     meshes: Vec<Mesh>,
@@ -59,7 +59,7 @@ impl Model {
             mesh.material = 0;
         }
         let diffuse_texture =
-            Texture::from_color(device, queue, (1.0, 0.0, 0.0), "color_texture").unwrap();
+            TextureRaw::from_color(device, queue, (1.0, 0.0, 0.0), "color_texture").unwrap();
         let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
         Self::new(
             device,
@@ -96,9 +96,9 @@ impl Model {
         let mut materials = Vec::new();
         for m in obj_materials? {
             let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
-                Texture::load_texture(&dir.join(&diffuse_texture), &diffuse_texture, device, queue)?
+                TextureRaw::load_texture(&dir.join(&diffuse_texture), &diffuse_texture, device, queue)?
             } else if let Some(diffuse) = m.diffuse {
-                Texture::from_color(device, queue, diffuse.into(), &m.name)?
+                TextureRaw::from_color(device, queue, diffuse.into(), &m.name)?
             } else {
                 continue;
             };

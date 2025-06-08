@@ -3,12 +3,12 @@ pub mod cube;
 
 use crate::render::buffers::transform::Transform;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
-use crate::render::model::material::texture::Texture;
-use crate::render::model::material::Material;
 use crate::render::model::Model;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
+use crate::render::buffers::texture::texture_raw::TextureRaw;
+use crate::render::model::material::Material;
 
 #[derive(Default)]
 pub struct MeshBuilder {
@@ -142,7 +142,7 @@ impl Mesh {
         color: (f32, f32, f32),
         transform: Transform,
     ) -> Model {
-        let texture = Texture::from_color(device, queue, color, "color_texture").unwrap();
+        let texture = TextureRaw::from_color(device, queue, color, "color_texture").unwrap();
         let material = Material {
             name: "color_material".into(),
             diffuse_bind_group: texture.diffuse_bind_group(device),

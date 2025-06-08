@@ -1,5 +1,7 @@
 use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
+use crate::render::buffers::texture::texture_raw::TextureRaw;
+
 pub mod camera_raw;
 
 pub struct CameraBuilder {
@@ -90,7 +92,7 @@ pub struct Camera {
     z_far: f32,
     aspect_ratio: f32,
     sensitivity: f32,
-    pub move_speed: f32,
+    move_speed: f32,
 }
 
 impl Camera {
@@ -182,6 +184,12 @@ impl Camera {
     }
     pub fn get_fov(&self) -> f32 {
         self.fov_y
+    }
+    pub fn get_mov_speed(&self) -> f32 {
+        self.move_speed
+    }
+    pub fn get_mov_speed_raw(&mut self) -> &mut f32 {
+        &mut self.move_speed
     }
 }
 

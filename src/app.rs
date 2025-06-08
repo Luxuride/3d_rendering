@@ -49,7 +49,7 @@ impl eframe::App for Custom3d {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.input(|i| {
             if i.modifiers.shift {
-                self.camera.move_speed = 1.0;
+                *self.camera.get_mov_speed_raw() = 1.0;
             }
             if i.key_down(egui::Key::W) {
                 self.camera.process_keyboard_input(CameraMovement::Forward);
@@ -77,7 +77,7 @@ impl eframe::App for Custom3d {
             if i.key_down(egui::Key::E) {
                 self.camera.process_keyboard_input(CameraMovement::FovDown);
             }
-            self.camera.move_speed = 0.1;
+            *self.camera.get_mov_speed_raw() = 0.1;
         });
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -94,7 +94,7 @@ impl eframe::App for Custom3d {
             egui::Window::new("Help")
                 .resizable(false)
                 .collapsible(false)
-                .open(&mut self.show_help) // This allows closing the window with the 'x' button
+                .open(&mut self.show_help)
                 .show(ctx, |ui| {
                     ui.label("LMB down: Look around");
                     ui.label("W: Forward");
@@ -218,22 +218,22 @@ impl Custom3d {
         if let Some(selected_model) = selected_model {
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().position.x,
-            ));
+            ).speed(0.1));
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().position.y,
-            ));
+            ).speed(0.1));
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().position.z,
-            ));
+            ).speed(0.1));
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().scale.x,
-            ));
+            ).speed(0.1));
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().scale.y,
-            ));
+            ).speed(0.1));
             ui.add(egui::DragValue::new(
                 &mut selected_model.get_transform_mut().scale.z,
-            ));
+            ).speed(0.1));
         }
         let device = &renderer.wgpu_render_state.device.clone();
         let queue = &renderer.wgpu_render_state.queue.clone();

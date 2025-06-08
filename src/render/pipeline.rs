@@ -1,9 +1,9 @@
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
-use crate::render::model::material::texture::Texture;
 use eframe::wgpu;
 use eframe::wgpu::{
     include_wgsl, BindGroupLayout, ColorTargetState, Device, Face, PolygonMode, RenderPipeline,
 };
+use crate::render::buffers::texture::texture_raw::TextureRaw;
 
 pub fn model_pipeline(
     device: &Device,
@@ -55,7 +55,7 @@ fn pipeline_layout<'a>(
     bind_group_layouts: &'a [&'a BindGroupLayout],
 ) -> wgpu::PipelineLayout {
     let mut bind_group_layouts = bind_group_layouts.to_vec();
-    let texture_bind_group = Texture::diffuse_bind_group_layout(device);
+    let texture_bind_group = TextureRaw::diffuse_bind_group_layout(device);
     bind_group_layouts.push(&texture_bind_group);
     let bind_group_layouts = bind_group_layouts.as_slice();
     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
