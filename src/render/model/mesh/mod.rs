@@ -1,14 +1,14 @@
 pub mod axis;
 pub mod cube;
 
+use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
+use crate::render::model::material::Material;
 use crate::render::model::Model;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
-use crate::render::buffers::texture::texture_raw::TextureRaw;
-use crate::render::model::material::Material;
 
 #[derive(Default)]
 pub struct MeshBuilder {

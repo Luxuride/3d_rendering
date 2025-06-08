@@ -7,6 +7,7 @@ use eframe::egui::Label;
 use eframe::{egui, egui_wgpu};
 use std::sync::atomic::AtomicU8;
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 pub struct Custom3d {
     camera: Camera,
@@ -14,6 +15,7 @@ pub struct Custom3d {
     selected_model: SelectedModel,
     loading: Arc<AtomicU8>,
     show_help: bool,
+    prev_frame: Instant,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -41,12 +43,25 @@ impl Custom3d {
             selected_model: SelectedModel::None,
             loading: Arc::new(AtomicU8::new(0)),
             show_help: false,
+            prev_frame: Instant::now(),
         })
     }
 }
 
 impl eframe::App for Custom3d {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let curr_frame = Instant::now();
+        let delta_time: Duration = curr_frame - self.prev_frame;
+        self.prev_frame = curr_frame;
+        {
+            let mut renderer = self.renderer.write().unwrap();
+            for model in renderer.wireframe_models.iter_mut() {
+                model.add_animation_time(delta_time);
+            }
+            for model in renderer.models.iter_mut() {
+                model.add_animation_time(delta_time);
+            }
+        }
         ctx.input(|i| {
             if i.modifiers.shift {
                 *self.camera.get_mov_speed_raw() = 1.0;
@@ -216,24 +231,24 @@ impl Custom3d {
             SelectedModel::None => None,
         };
         if let Some(selected_model) = selected_model {
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().position.x,
-            ).speed(0.1));
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().position.y,
-            ).speed(0.1));
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().position.z,
-            ).speed(0.1));
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().scale.x,
-            ).speed(0.1));
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().scale.y,
-            ).speed(0.1));
-            ui.add(egui::DragValue::new(
-                &mut selected_model.get_transform_mut().scale.z,
-            ).speed(0.1));
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().position.x).speed(0.1),
+            );
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().position.y).speed(0.1),
+            );
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().position.z).speed(0.1),
+            );
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().scale.x).speed(0.1),
+            );
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().scale.y).speed(0.1),
+            );
+            ui.add(
+                egui::DragValue::new(&mut selected_model.get_transform_mut().scale.z).speed(0.1),
+            );
         }
         let device = &renderer.wgpu_render_state.device.clone();
         let queue = &renderer.wgpu_render_state.queue.clone();

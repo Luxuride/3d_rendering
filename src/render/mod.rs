@@ -1,3 +1,4 @@
+mod animation;
 pub mod buffers;
 pub mod model;
 mod pipeline;

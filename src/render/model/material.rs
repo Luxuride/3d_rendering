@@ -1,5 +1,5 @@
-use eframe::wgpu;
 use crate::render::buffers::texture::texture_raw;
+use eframe::wgpu;
 
 pub struct Material {
     pub name: String,

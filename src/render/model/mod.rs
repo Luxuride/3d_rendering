@@ -1,6 +1,9 @@
+use crate::render::animation::Animation;
+use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::model;
+use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
 use anyhow::Result;
 use eframe::wgpu;
@@ -9,12 +12,12 @@ use eframe::wgpu::{Device, Queue};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use crate::render::buffers::texture::texture_raw::TextureRaw;
-use crate::render::model::material::Material;
+use std::time::Duration;
+use crate::render::animation::simple_animation::SimpleAnimation;
 
+mod material;
 pub mod mesh;
 pub mod outline;
-mod material;
 
 pub struct Model {
     meshes: Vec<Mesh>,
@@ -22,6 +25,7 @@ pub struct Model {
     transform: Transform,
     transform_buffer: wgpu::Buffer,
     transform_bind_group: wgpu::BindGroup,
+    animation: Option<Box<dyn Animation + Send + Sync>>,
 }
 
 impl Model {
@@ -51,6 +55,7 @@ impl Model {
             transform,
             transform_buffer,
             transform_bind_group,
+            animation: None,
         }
     }
     pub fn clone_untextured(&self, device: &Device, queue: &Queue) -> Self {
@@ -96,7 +101,12 @@ impl Model {
         let mut materials = Vec::new();
         for m in obj_materials? {
             let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
-                TextureRaw::load_texture(&dir.join(&diffuse_texture), &diffuse_texture, device, queue)?
+                TextureRaw::load_texture(
+                    &dir.join(&diffuse_texture),
+                    &diffuse_texture,
+                    device,
+                    queue,
+                )?
             } else if let Some(diffuse) = m.diffuse {
                 TextureRaw::from_color(device, queue, diffuse.into(), &m.name)?
             } else {
@@ -137,8 +147,11 @@ impl Model {
     pub fn get_meshes(&self) -> &Vec<Mesh> {
         &self.meshes
     }
-    pub fn get_transform(&self) -> &Transform {
-        &self.transform
+    pub fn get_transform(&self) -> Transform {
+        match self.animation.as_ref() {
+            Some(animation) => animation.get_animation_transform(&self.transform),
+            None => self.transform,
+        }
     }
     pub fn get_transform_mut(&mut self) -> &mut Transform {
         &mut self.transform
@@ -148,5 +161,10 @@ impl Model {
     }
     pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
         &self.transform_bind_group
+    }
+    pub fn add_animation_time(&mut self, delta_time: Duration) {
+        if let Some(animation) = self.animation.as_mut() {
+            animation.update_time(delta_time);
+        }
     }
 }

@@ -1,9 +1,9 @@
+use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu;
 use eframe::wgpu::{
     include_wgsl, BindGroupLayout, ColorTargetState, Device, Face, PolygonMode, RenderPipeline,
 };
-use crate::render::buffers::texture::texture_raw::TextureRaw;
 
 pub fn model_pipeline(
     device: &Device,

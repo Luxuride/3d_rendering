@@ -1,5 +1,5 @@
-use eframe::wgpu;
 use crate::render::buffers::color::color_raw::ColorRaw;
+use eframe::wgpu;
 
 pub mod color_raw;
 

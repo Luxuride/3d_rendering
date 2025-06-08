@@ -1,6 +1,6 @@
+use crate::render::buffers::texture::texture_raw::TextureRaw;
 use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
-use crate::render::buffers::texture::texture_raw::TextureRaw;
 
 pub mod camera_raw;
 
