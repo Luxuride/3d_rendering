@@ -1,6 +1,6 @@
-use std::time::Duration;
 use crate::render::animation::Animation;
 use crate::render::buffers::transform::Transform;
+use std::time::Duration;
 
 const ANIMATION_DURATION: u128 = 10000;
 
@@ -15,7 +15,7 @@ impl Animation for SimpleAnimation {
     }
 
     fn get_animation_transform(&self, transform: &Transform) -> Transform {
-        let mut transform = transform.clone();
+        let mut transform = *transform;
         let pos = self.animation_time.min(10000 - (self.animation_time));
         transform.position.x += pos as f32 * 4.0 / 10000.0;
         transform.position.y += pos as f32 * 2.2 / 10000.0;

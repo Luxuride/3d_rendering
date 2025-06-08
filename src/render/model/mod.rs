@@ -13,7 +13,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use std::time::Duration;
-use crate::render::animation::simple_animation::SimpleAnimation;
 
 mod material;
 pub mod mesh;
