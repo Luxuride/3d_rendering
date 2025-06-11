@@ -96,6 +96,7 @@ impl eframe::App for Custom3d {
         });
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
+                ui.label(format!("{:.2}ms", delta_time.as_secs_f32() * 1000.0));
                 ui.menu_button("About", |ui| {
                     let help_button = ui.button("Help");
                     if help_button.clicked() {
