@@ -1,6 +1,7 @@
 use crate::app::Custom3d;
 use crate::render::buffers::transform::Transform;
 use crate::render::model::Model;
+use crate::render::pipeline::SelectedPipeline;
 use eframe::egui;
 use eframe::egui::Label;
 
@@ -22,6 +23,19 @@ impl Custom3d {
                     self.camera.get_position().z
                 )));
                 ui.add(Label::new(format!("FOV: {:.2}", self.camera.get_fov())));
+            });
+            ui.horizontal(|ui| {
+                let renderer = &mut self.renderer.write().unwrap();
+                ui.radio_value(
+                    &mut renderer.selected_pipeline,
+                    SelectedPipeline::Wireframe,
+                    "Wireframe",
+                );
+                ui.radio_value(
+                    &mut renderer.selected_pipeline,
+                    SelectedPipeline::Textured,
+                    "Textured",
+                );
             });
             let button = ui.button("Add model");
             ui.add(Label::new(format!(

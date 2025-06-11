@@ -1,5 +1,4 @@
-use crate::app::SelectedModel::{Model, Wireframe};
-use crate::app::{Custom3d, SelectedModel};
+use crate::app::Custom3d;
 use eframe::egui;
 
 impl Custom3d {
@@ -8,49 +7,17 @@ impl Custom3d {
             .resizable(true)
             .show(ctx, |ui| {
                 let renderer = &mut self.renderer.write().unwrap();
-                ui.radio_value(
-                    &mut self.selected_model,
-                    SelectedModel::None,
-                    "None".to_string(),
-                );
-                for (model_index, _) in renderer.wireframe_models.iter().enumerate() {
-                    ui.radio_value(
-                        &mut self.selected_model,
-                        SelectedModel::Wireframe(model_index),
-                        format!("Wireframe {}", model_index),
-                    );
-                }
+                ui.radio_value(&mut self.selected_model, None, "None".to_string());
                 for (model_index, _) in renderer.models.iter().enumerate() {
                     ui.radio_value(
                         &mut self.selected_model,
-                        SelectedModel::Model(model_index),
+                        Some(model_index),
                         format!("Model {}", model_index),
                     );
                 }
                 let selected_model = match self.selected_model {
-                    SelectedModel::Wireframe(model_index) => {
-                        let button = ui.button("Make Filled");
-                        if button.clicked() {
-                            let model = renderer.wireframe_models.remove(model_index);
-                            renderer.models.push(model);
-                            self.selected_model = Model(renderer.models.len() - 1);
-                            renderer.models.last_mut()
-                        } else {
-                            renderer.wireframe_models.get_mut(model_index)
-                        }
-                    }
-                    SelectedModel::Model(model_index) => {
-                        let button = ui.button("Make Wireframe");
-                        if button.clicked() {
-                            let model = renderer.models.remove(model_index);
-                            renderer.wireframe_models.push(model);
-                            self.selected_model = Wireframe(renderer.wireframe_models.len() - 1);
-                            renderer.wireframe_models.last_mut()
-                        } else {
-                            renderer.models.get_mut(model_index)
-                        }
-                    }
-                    SelectedModel::None => None,
+                    Some(model_index) => renderer.models.get_mut(model_index),
+                    None => None,
                 };
                 if let Some(selected_model) = selected_model {
                     ui.add(
@@ -81,11 +48,8 @@ impl Custom3d {
                 let device = &renderer.wgpu_render_state.device.clone();
                 let queue = &renderer.wgpu_render_state.queue.clone();
                 let selected_model = match self.selected_model {
-                    SelectedModel::Wireframe(model_index) => {
-                        renderer.wireframe_models.get(model_index)
-                    }
-                    SelectedModel::Model(model_index) => renderer.models.get(model_index),
-                    SelectedModel::None => None,
+                    Some(model_index) => renderer.models.get_mut(model_index),
+                    None => None,
                 }
                 .map(|model| model.clone_untextured(device, queue));
                 if let Some(selected_model) = selected_model {

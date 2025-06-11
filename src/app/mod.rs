@@ -12,17 +12,10 @@ pub mod panels;
 pub struct Custom3d {
     camera: Camera,
     renderer: Arc<RwLock<RendererRenderResources>>,
-    selected_model: SelectedModel,
+    selected_model: Option<usize>,
     loading: Arc<AtomicU8>,
     show_help: bool,
     prev_frame: Instant,
-}
-
-#[derive(PartialEq, Clone, Copy)]
-enum SelectedModel {
-    Wireframe(usize),
-    Model(usize),
-    None,
 }
 
 impl Custom3d {
@@ -40,7 +33,7 @@ impl Custom3d {
         Some(Self {
             camera,
             renderer,
-            selected_model: SelectedModel::None,
+            selected_model: None,
             loading: Arc::new(AtomicU8::new(0)),
             show_help: false,
             prev_frame: Instant::now(),
@@ -55,9 +48,6 @@ impl eframe::App for Custom3d {
         self.prev_frame = curr_frame;
         {
             let mut renderer = self.renderer.write().unwrap();
-            for model in renderer.wireframe_models.iter_mut() {
-                model.add_animation_time(delta_time);
-            }
             for model in renderer.models.iter_mut() {
                 model.add_animation_time(delta_time);
             }

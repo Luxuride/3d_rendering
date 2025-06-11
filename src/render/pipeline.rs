@@ -16,6 +16,12 @@ pub static SAMPLE_COUNT: LazyLock<u16> = LazyLock::new(|| {
         .unwrap_or(1)
 });
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum SelectedPipeline {
+    Wireframe,
+    Textured,
+}
+
 pub fn model_pipeline(
     device: &Device,
     bind_group_layouts: &[&BindGroupLayout],

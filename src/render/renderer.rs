@@ -14,11 +14,14 @@ use crate::render::model::mesh::axis::{
 };
 use crate::render::model::mesh::cube::cube_mesh_builder;
 use crate::render::model::Model;
-use crate::render::pipeline::{model_pipeline, outline_pipeline, wireframe_pipeline};
+use crate::render::pipeline::{
+    model_pipeline, outline_pipeline, wireframe_pipeline, SelectedPipeline,
+};
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
 
 pub struct RendererRenderResources {
     pub wgpu_render_state: RenderState,
+    pub selected_pipeline: SelectedPipeline,
 
     // Pipelines
     wireframe_pipeline: RenderPipeline,
@@ -32,7 +35,6 @@ pub struct RendererRenderResources {
     // Instances
     pub outline: Option<Model>,
     pub axis: [Model; 3],
-    pub wireframe_models: Vec<Model>,
     pub models: Vec<Model>,
 }
 
@@ -64,14 +66,14 @@ impl RendererRenderResources {
             wgpu_render_state.target_format.into(),
         );
 
-        let mut wireframe_models = vec![];
+        let mut models = vec![];
         let cube = cube_mesh_builder().build(device).to_model(
             device,
             &wgpu_render_state.queue,
             (1.0, 1.0, 0.0),
             Transform::default(),
         );
-        wireframe_models.push(cube);
+        models.push(cube);
 
         let axis = [
             x_axis_mesh_builder().build(device).to_model(
@@ -94,19 +96,17 @@ impl RendererRenderResources {
             ),
         ];
 
-        let models = vec![];
-
         Self {
             wireframe_pipeline,
             model_pipeline,
             outline_pipeline,
             camera_bind_group,
             camera_uniform_buffer,
-            wireframe_models,
             models,
             axis,
             outline: None,
             wgpu_render_state,
+            selected_pipeline: SelectedPipeline::Wireframe,
         }
     }
 
@@ -116,7 +116,7 @@ impl RendererRenderResources {
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
-        for model in self.models.iter().chain(self.wireframe_models.iter()) {
+        for model in self.models.iter() {
             queue.write_buffer(
                 model.get_transform_buffer(),
                 0,
@@ -135,13 +135,13 @@ impl RendererRenderResources {
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
         render_pass.set_pipeline(&self.wireframe_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        for model in self.wireframe_models.iter() {
-            model.draw(render_pass);
-        }
         for axis in self.axis.iter() {
             axis.draw(render_pass);
         }
-        render_pass.set_pipeline(&self.model_pipeline);
+        match self.selected_pipeline {
+            SelectedPipeline::Wireframe => render_pass.set_pipeline(&self.wireframe_pipeline),
+            SelectedPipeline::Textured => render_pass.set_pipeline(&self.model_pipeline),
+        }
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
         for model in self.models.iter() {
             model.draw(render_pass);
