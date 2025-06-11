@@ -40,32 +40,32 @@ impl From<tobj::Model> for MeshBuilder {
         let vertices = (0..m.mesh.positions.len() / 3)
             .map(|i| {
                 if m.mesh.normals.is_empty() {
-                    VertexRaw {
-                        position: [
+                    VertexRaw::new(
+                        [
                             m.mesh.positions[i * 3],
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ],
-                        tex_coords: [m.mesh.texcoords[i * 2], 1.0 - m.mesh.texcoords[i * 2 + 1]],
-                        normal: [0.0, 0.0, 0.0],
-                    }
+                        [m.mesh.texcoords[i * 2], 1.0 - m.mesh.texcoords[i * 2 + 1]],
+                        [0.0, 0.0, 0.0],
+                    )
                 } else {
-                    VertexRaw {
-                        position: [
+                    VertexRaw::new(
+                        [
                             m.mesh.positions[i * 3],
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ],
-                        tex_coords: [
+                        [
                             m.mesh.texcoords.get(i * 2).copied().unwrap_or(0.0),
                             1.0 - m.mesh.texcoords.get(i * 2 + 1).copied().unwrap_or(0.0),
                         ],
-                        normal: [
+                        [
                             m.mesh.normals[i * 3],
                             m.mesh.normals[i * 3 + 1],
                             m.mesh.normals[i * 3 + 2],
                         ],
-                    }
+                    )
                 }
             })
             .collect::<Vec<_>>();
@@ -82,16 +82,14 @@ impl From<tobj::Model> for MeshBuilder {
 #[derive(Clone)]
 pub struct Mesh {
     vertex_buffer: wgpu::Buffer,
-    vertices: Vec<VertexRaw>,
     index_buffer: wgpu::Buffer,
-    indices: Vec<u32>,
     index_count: u32,
     pub material: usize,
 }
 
 impl Mesh {
     pub fn new(
-        device: &wgpu::Device,
+        device: &Device,
         vertices: Vec<VertexRaw>,
         indices: Vec<u32>,
         material: usize,
@@ -110,9 +108,7 @@ impl Mesh {
 
         Self {
             vertex_buffer,
-            vertices,
             index_buffer,
-            indices,
             index_count,
             material,
         }
@@ -129,12 +125,7 @@ impl Mesh {
     pub fn get_material(&self) -> usize {
         self.material
     }
-    pub fn get_vertices(&self) -> &Vec<VertexRaw> {
-        &self.vertices
-    }
-    pub fn get_indices(&self) -> &Vec<u32> {
-        &self.indices
-    }
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_model(
         self,
         device: &Device,
@@ -144,7 +135,6 @@ impl Mesh {
     ) -> Model {
         let texture = TextureRaw::from_color(device, queue, color, "color_texture").unwrap();
         let material = Material {
-            name: "color_material".into(),
             diffuse_bind_group: texture.diffuse_bind_group(device),
             diffuse_texture: texture,
         };

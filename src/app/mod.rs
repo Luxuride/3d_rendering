@@ -1,17 +1,13 @@
-use crate::render::buffers::camera::{Camera, CameraBuilder, CameraMovement};
-use crate::render::buffers::transform::Transform;
-use crate::render::model::Model;
+use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use cgmath::Point3;
-use eframe::egui::Label;
 use eframe::{egui, egui_wgpu};
 use std::sync::atomic::AtomicU8;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use eframe::wgpu::rwh::HasWindowHandle;
 
-pub mod panels;
 mod input;
+pub mod panels;
 
 pub struct Custom3d {
     camera: Camera,

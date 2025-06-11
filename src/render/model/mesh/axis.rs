@@ -1,12 +1,13 @@
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use crate::render::model::mesh::MeshBuilder;
+use std::sync::LazyLock;
 
-#[rustfmt::skip]
-const VERTICES: [VertexRaw; 2] = [
-    VertexRaw { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [1.0, 0.0, 0.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-];
-
+static VERTICES: LazyLock<[VertexRaw; 2]> = LazyLock::new(|| {
+    [
+        VertexRaw::new([0.0, 0.0, 0.0], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([1.0, 0.0, 0.0], [0.0, 0.0], [0.0, 0.0, 0.0]),
+    ]
+});
 #[rustfmt::skip]
 const INDICES: [u32; 3] = [
     0, 1, 0,

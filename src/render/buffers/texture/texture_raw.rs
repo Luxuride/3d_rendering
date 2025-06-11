@@ -83,7 +83,7 @@ impl TextureRaw {
         })
     }
     pub fn from_color(
-        device: &wgpu::Device,
+        device: &Device,
         queue: &wgpu::Queue,
         color: (f32, f32, f32), // RGB
         label: &str,

@@ -1,6 +1,6 @@
-use std::time::Duration;
-use eframe::egui;
 use crate::app::Custom3d;
+use eframe::egui;
+use std::time::Duration;
 
 impl Custom3d {
     pub fn top_panel(&mut self, delta_time: &Duration, ctx: &egui::Context) {

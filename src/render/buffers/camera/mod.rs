@@ -1,6 +1,6 @@
-use std::time::Duration;
 use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
+use std::time::Duration;
 
 pub mod camera_raw;
 
@@ -15,6 +15,7 @@ pub struct CameraBuilder {
     sensitivity: f32,
     move_speed: f32,
 }
+
 impl Default for CameraBuilder {
     fn default() -> Self {
         Self {
@@ -32,42 +33,52 @@ impl Default for CameraBuilder {
 }
 
 impl CameraBuilder {
+    #[allow(dead_code)]
     pub fn position(mut self, position: Point3<f32>) -> Self {
         self.position = position;
         self
     }
+    #[allow(dead_code)]
     pub fn yaw(mut self, yaw: f32) -> Self {
         self.yaw = yaw;
         self
     }
+    #[allow(dead_code)]
     pub fn pitch(mut self, pitch: f32) -> Self {
         self.pitch = pitch;
         self
     }
+    #[allow(dead_code)]
     pub fn fov_y(mut self, fov_y: f32) -> Self {
         self.fov_y = fov_y;
         self
     }
+    #[allow(dead_code)]
     pub fn z_near(mut self, z_near: f32) -> Self {
         self.z_near = z_near;
         self
     }
+    #[allow(dead_code)]
     pub fn z_far(mut self, z_far: f32) -> Self {
         self.z_far = z_far;
         self
     }
+    #[allow(dead_code)]
     pub fn aspect_ratio(mut self, aspect_ratio: f32) -> Self {
         self.aspect_ratio = aspect_ratio;
         self
     }
+    #[allow(dead_code)]
     pub fn sensitivity(mut self, sensitivity: f32) -> Self {
         self.sensitivity = sensitivity;
         self
     }
+    #[allow(dead_code)]
     pub fn move_speed(mut self, move_speed: f32) -> Self {
         self.move_speed = move_speed;
         self
     }
+    #[allow(dead_code)]
     pub fn build(self) -> Camera {
         Camera {
             position: self.position,
@@ -184,9 +195,6 @@ impl Camera {
     }
     pub fn get_fov(&self) -> f32 {
         self.fov_y
-    }
-    pub fn get_mov_speed(&self) -> f32 {
-        self.move_speed
     }
     pub fn get_mov_speed_raw(&mut self) -> &mut f32 {
         &mut self.move_speed
