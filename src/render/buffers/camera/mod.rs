@@ -1,5 +1,6 @@
 use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
+use std::time::Duration;
 
 pub mod camera_raw;
 
@@ -14,6 +15,7 @@ pub struct CameraBuilder {
     sensitivity: f32,
     move_speed: f32,
 }
+
 impl Default for CameraBuilder {
     fn default() -> Self {
         Self {
@@ -25,48 +27,58 @@ impl Default for CameraBuilder {
             z_far: 100.0,
             aspect_ratio: 1.0,
             sensitivity: 0.1,
-            move_speed: 0.1,
+            move_speed: 1.0,
         }
     }
 }
 
 impl CameraBuilder {
+    #[allow(dead_code)]
     pub fn position(mut self, position: Point3<f32>) -> Self {
         self.position = position;
         self
     }
+    #[allow(dead_code)]
     pub fn yaw(mut self, yaw: f32) -> Self {
         self.yaw = yaw;
         self
     }
+    #[allow(dead_code)]
     pub fn pitch(mut self, pitch: f32) -> Self {
         self.pitch = pitch;
         self
     }
+    #[allow(dead_code)]
     pub fn fov_y(mut self, fov_y: f32) -> Self {
         self.fov_y = fov_y;
         self
     }
+    #[allow(dead_code)]
     pub fn z_near(mut self, z_near: f32) -> Self {
         self.z_near = z_near;
         self
     }
+    #[allow(dead_code)]
     pub fn z_far(mut self, z_far: f32) -> Self {
         self.z_far = z_far;
         self
     }
+    #[allow(dead_code)]
     pub fn aspect_ratio(mut self, aspect_ratio: f32) -> Self {
         self.aspect_ratio = aspect_ratio;
         self
     }
+    #[allow(dead_code)]
     pub fn sensitivity(mut self, sensitivity: f32) -> Self {
         self.sensitivity = sensitivity;
         self
     }
+    #[allow(dead_code)]
     pub fn move_speed(mut self, move_speed: f32) -> Self {
         self.move_speed = move_speed;
         self
     }
+    #[allow(dead_code)]
     pub fn build(self) -> Camera {
         Camera {
             position: self.position,
@@ -109,23 +121,23 @@ impl Camera {
     }
 
     // Processes keyboard input for camera translation (position).
-    pub fn process_keyboard_input(&mut self, direction: CameraMovement) {
+    pub fn process_keyboard_input(&mut self, direction: CameraMovement, delta_time: &Duration) {
         let forward = self.get_forward_vector();
         let right = self.get_right_vector();
         let up = self.get_up_vector();
-
+        let speed_multiplier = self.move_speed * delta_time.as_secs_f32();
         match direction {
-            CameraMovement::Forward => self.position += forward * self.move_speed,
-            CameraMovement::Backward => self.position -= forward * self.move_speed,
-            CameraMovement::Left => self.position -= right * self.move_speed,
-            CameraMovement::Right => self.position += right * self.move_speed,
-            CameraMovement::Up => self.position += up * self.move_speed,
-            CameraMovement::Down => self.position -= up * self.move_speed,
+            CameraMovement::Forward => self.position += forward * speed_multiplier,
+            CameraMovement::Backward => self.position -= forward * speed_multiplier,
+            CameraMovement::Left => self.position -= right * speed_multiplier,
+            CameraMovement::Right => self.position += right * speed_multiplier,
+            CameraMovement::Up => self.position += up * speed_multiplier,
+            CameraMovement::Down => self.position -= up * speed_multiplier,
             CameraMovement::FovUp => {
-                self.fov_y = (self.fov_y + self.move_speed * 2.0).clamp(10.0, 80.0)
+                self.fov_y = (self.fov_y + speed_multiplier * 10.0).clamp(10.0, 80.0)
             }
             CameraMovement::FovDown => {
-                self.fov_y = (self.fov_y - self.move_speed * 2.0).clamp(10.0, 80.0)
+                self.fov_y = (self.fov_y - speed_multiplier * 10.0).clamp(10.0, 80.0)
             }
         }
     }
@@ -183,9 +195,6 @@ impl Camera {
     }
     pub fn get_fov(&self) -> f32 {
         self.fov_y
-    }
-    pub fn get_mov_speed(&self) -> f32 {
-        self.move_speed
     }
     pub fn get_mov_speed_raw(&mut self) -> &mut f32 {
         &mut self.move_speed

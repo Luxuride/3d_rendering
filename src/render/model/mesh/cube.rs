@@ -1,20 +1,21 @@
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use crate::render::model::mesh::MeshBuilder;
+use std::sync::LazyLock;
 
-#[rustfmt::skip]
-const VERTICES: [VertexRaw; 8] = [
-    // Ignore normals by setting them to 0
-    // Ignore texture coords by setting them to 0
-    VertexRaw { position: [-0.5, -0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [0.5, -0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-0.5, 0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [0.5, 0.5, 0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-0.5, -0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [0.5, -0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [-0.5, 0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-    VertexRaw { position: [0.5, 0.5, -0.5], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, 0.0]},
-];
-
+static VERTICES: LazyLock<[VertexRaw; 8]> = LazyLock::new(|| {
+    [
+        // Ignore normals by setting them to 0
+        // Ignore texture coords by setting them to 0
+        VertexRaw::new([-0.5, -0.5, 0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([0.5, -0.5, 0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([-0.5, 0.5, 0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([0.5, 0.5, 0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([-0.5, -0.5, -0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([0.5, -0.5, -0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([-0.5, 0.5, -0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+        VertexRaw::new([0.5, 0.5, -0.5], [0.0, 0.0], [0.0, 0.0, 0.0]),
+    ]
+});
 #[rustfmt::skip]
 const INDICES: [u32; 36] = [
     0, 1, 2,

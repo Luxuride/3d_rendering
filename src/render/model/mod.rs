@@ -69,7 +69,6 @@ impl Model {
             device,
             new_meshes,
             vec![Material {
-                name: "color_material".into(),
                 diffuse_texture,
                 diffuse_bind_group,
             }],
@@ -113,7 +112,6 @@ impl Model {
             };
             let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
             materials.push(model::Material {
-                name: m.name,
                 diffuse_texture,
                 diffuse_bind_group,
             });
@@ -139,12 +137,6 @@ impl Model {
                 .set_index_buffer(mesh.get_index_buffer().slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..mesh.get_num_indices(), 0, 0..1);
         }
-    }
-    pub fn get_materials(&self) -> &Vec<Material> {
-        &self.materials
-    }
-    pub fn get_meshes(&self) -> &Vec<Mesh> {
-        &self.meshes
     }
     pub fn get_transform(&self) -> Transform {
         match self.animation.as_ref() {

@@ -3,9 +3,9 @@ use eframe::wgpu;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct VertexRaw {
-    pub position: [f32; 3],
-    pub tex_coords: [f32; 2],
-    pub normal: [f32; 3],
+    position: [f32; 3],
+    tex_coords: [f32; 2],
+    normal: [f32; 3],
 }
 
 impl VertexRaw {
