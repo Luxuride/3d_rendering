@@ -9,10 +9,11 @@ mod app;
 mod render;
 
 fn main() -> eframe::Result {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
+    println!("{}", *render::pipeline::SAMPLE_COUNT);
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default().with_inner_size([350.0, 380.0]),
-        multisampling: 1,
+        multisampling: *render::pipeline::SAMPLE_COUNT,
         renderer: eframe::Renderer::Wgpu,
         depth_buffer: 32,
         wgpu_options: WgpuConfiguration {

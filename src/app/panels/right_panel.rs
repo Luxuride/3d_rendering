@@ -1,3 +1,4 @@
+use crate::app::SelectedModel::{Model, Wireframe};
 use crate::app::{Custom3d, SelectedModel};
 use eframe::egui;
 
@@ -28,9 +29,27 @@ impl Custom3d {
                 }
                 let selected_model = match self.selected_model {
                     SelectedModel::Wireframe(model_index) => {
-                        renderer.wireframe_models.get_mut(model_index)
+                        let button = ui.button("Make Filled");
+                        if button.clicked() {
+                            let model = renderer.wireframe_models.remove(model_index);
+                            renderer.models.push(model);
+                            self.selected_model = Model(renderer.models.len() - 1);
+                            renderer.models.last_mut()
+                        } else {
+                            renderer.wireframe_models.get_mut(model_index)
+                        }
                     }
-                    SelectedModel::Model(model_index) => renderer.models.get_mut(model_index),
+                    SelectedModel::Model(model_index) => {
+                        let button = ui.button("Make Wireframe");
+                        if button.clicked() {
+                            let model = renderer.models.remove(model_index);
+                            renderer.wireframe_models.push(model);
+                            self.selected_model = Wireframe(renderer.wireframe_models.len() - 1);
+                            renderer.wireframe_models.last_mut()
+                        } else {
+                            renderer.models.get_mut(model_index)
+                        }
+                    }
                     SelectedModel::None => None,
                 };
                 if let Some(selected_model) = selected_model {

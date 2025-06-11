@@ -2,8 +2,19 @@ use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu;
 use eframe::wgpu::{
-    include_wgsl, BindGroupLayout, ColorTargetState, Device, Face, PolygonMode, RenderPipeline,
+    include_wgsl, BindGroupLayout, ColorTargetState, Device, Face, MultisampleState, PolygonMode,
+    RenderPipeline,
 };
+use std::env;
+use std::sync::LazyLock;
+
+pub static SAMPLE_COUNT: LazyLock<u16> = LazyLock::new(|| {
+    env::var("SAMPLE_COUNT")
+        .map(|x| x.parse::<u16>().ok())
+        .ok()
+        .flatten()
+        .unwrap_or(1)
+});
 
 pub fn model_pipeline(
     device: &Device,
@@ -108,7 +119,10 @@ fn pipeline(
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
-        multisample: wgpu::MultisampleState::default(),
+        multisample: MultisampleState {
+            count: (*SAMPLE_COUNT).into(),
+            ..Default::default()
+        },
         multiview: None,
         cache: None,
     })
