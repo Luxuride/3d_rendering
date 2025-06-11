@@ -1,3 +1,4 @@
+use std::time::Duration;
 use camera_raw::CameraRaw;
 use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
 
@@ -25,7 +26,7 @@ impl Default for CameraBuilder {
             z_far: 100.0,
             aspect_ratio: 1.0,
             sensitivity: 0.1,
-            move_speed: 0.1,
+            move_speed: 1.0,
         }
     }
 }
@@ -109,23 +110,23 @@ impl Camera {
     }
 
     // Processes keyboard input for camera translation (position).
-    pub fn process_keyboard_input(&mut self, direction: CameraMovement) {
+    pub fn process_keyboard_input(&mut self, direction: CameraMovement, delta_time: &Duration) {
         let forward = self.get_forward_vector();
         let right = self.get_right_vector();
         let up = self.get_up_vector();
-
+        let speed_multiplier = self.move_speed * delta_time.as_secs_f32();
         match direction {
-            CameraMovement::Forward => self.position += forward * self.move_speed,
-            CameraMovement::Backward => self.position -= forward * self.move_speed,
-            CameraMovement::Left => self.position -= right * self.move_speed,
-            CameraMovement::Right => self.position += right * self.move_speed,
-            CameraMovement::Up => self.position += up * self.move_speed,
-            CameraMovement::Down => self.position -= up * self.move_speed,
+            CameraMovement::Forward => self.position += forward * speed_multiplier,
+            CameraMovement::Backward => self.position -= forward * speed_multiplier,
+            CameraMovement::Left => self.position -= right * speed_multiplier,
+            CameraMovement::Right => self.position += right * speed_multiplier,
+            CameraMovement::Up => self.position += up * speed_multiplier,
+            CameraMovement::Down => self.position -= up * speed_multiplier,
             CameraMovement::FovUp => {
-                self.fov_y = (self.fov_y + self.move_speed * 2.0).clamp(10.0, 80.0)
+                self.fov_y = (self.fov_y + speed_multiplier * 10.0).clamp(10.0, 80.0)
             }
             CameraMovement::FovDown => {
-                self.fov_y = (self.fov_y - self.move_speed * 2.0).clamp(10.0, 80.0)
+                self.fov_y = (self.fov_y - speed_multiplier * 10.0).clamp(10.0, 80.0)
             }
         }
     }

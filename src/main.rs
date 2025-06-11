@@ -5,8 +5,8 @@ use eframe::wgpu;
 use eframe::wgpu::Features;
 use std::sync::Arc;
 
-pub mod app;
-pub mod render;
+mod app;
+mod render;
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).

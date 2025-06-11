@@ -1,5 +1,5 @@
-mod animation;
+pub mod animation;
 pub mod buffers;
 pub mod model;
-mod pipeline;
+pub mod pipeline;
 pub mod renderer;
