@@ -1,7 +1,7 @@
 use crate::render::animation::Animation;
 use crate::render::buffers::texture::texture_raw::TextureRaw;
-use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::buffers::transform::Transform;
+use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::model;
 use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};

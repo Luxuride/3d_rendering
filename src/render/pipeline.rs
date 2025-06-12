@@ -2,8 +2,8 @@ use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use eframe::wgpu;
 use eframe::wgpu::{
-    include_wgsl, BindGroupLayout, ColorTargetState, Device, Face, MultisampleState, PolygonMode,
-    RenderPipeline,
+    BindGroupLayout, ColorTargetState, Device, Face, MultisampleState, PolygonMode, RenderPipeline,
+    include_wgsl,
 };
 use std::env;
 use std::sync::LazyLock;

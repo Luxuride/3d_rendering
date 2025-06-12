@@ -1,5 +1,5 @@
 use camera_raw::CameraRaw;
-use cgmath::{perspective, Deg, InnerSpace, Matrix4, Point3, Vector3};
+use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3, perspective};
 use std::time::Duration;
 
 pub mod camera_raw;

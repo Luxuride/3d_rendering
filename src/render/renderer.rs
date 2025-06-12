@@ -5,17 +5,17 @@ use eframe::{egui, egui_wgpu, wgpu};
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
-use crate::render::buffers::camera::camera_raw::CameraRaw;
 use crate::render::buffers::camera::Camera;
-use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::buffers::camera::camera_raw::CameraRaw;
 use crate::render::buffers::transform::Transform;
+use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::model::Model;
 use crate::render::model::mesh::axis::{
     x_axis_mesh_builder, y_axis_mesh_builder, z_axis_mesh_builder,
 };
 use crate::render::model::mesh::cube::cube_mesh_builder;
-use crate::render::model::Model;
 use crate::render::pipeline::{
-    model_pipeline, outline_pipeline, wireframe_pipeline, SelectedPipeline,
+    SelectedPipeline, model_pipeline, outline_pipeline, wireframe_pipeline,
 };
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
 

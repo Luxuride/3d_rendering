@@ -1,0 +1,21 @@
+version: 1
+script:
+  - chmod +x rendering
+  - mkdir -p AppDir/usr/bin
+  - mv rendering AppDir/usr/bin
+  - mkdir -p AppDir/usr/share/icons
+  - mv .github/appimage/icon.svg AppDir/usr/share/icons
+  - mv .github/appimage/app.desktop AppDir
+  - which mksquashfs || apt install squashfs-tools
+AppDir:
+  path: ./AppDir
+  app_info:
+    id: eu.luxuride.rendering
+    name: rendering
+    version: 0.1.0
+    icon: icon
+    exec: usr/bin/rendering
+    exec_args: $@
+
+AppImage:
+  arch: x86_64

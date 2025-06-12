@@ -1,4 +1,4 @@
-name: Rust Egui WGPU Checks and Build
+name: Rust Rendering App Checks and Build
 
 on:
   push:
@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain (clippy)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -42,21 +44,19 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - name: Install build dependencies (Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libx11-dev libxcb-randr0-dev libxcb-xinput-dev
       - name: Build project (Linux)
         run: cargo build --release
       - name: Upload Linux Binary
         uses: actions/upload-artifact@v4
         with:
-          name: egui-wgpu-linux-binary
-          path: target/release/opengl
+          name: rendering-linux-binary
+          path: target/release/rendering
 
   build-windows:
     runs-on: windows-latest
@@ -64,6 +64,8 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -73,8 +75,8 @@ jobs:
       - name: Upload Windows Binary
         uses: actions/upload-artifact@v4
         with:
-          name: egui-wgpu-windows-binary
-          path: target/release/opengl.exe
+          name: rendering-windows-binary
+          path: target/release/rendering.exe
 
   build-macos:
     runs-on: macos-latest
@@ -82,6 +84,8 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -91,5 +95,25 @@ jobs:
       - name: Upload macOS Binary
         uses: actions/upload-artifact@v4
         with:
-          name: egui-wgpu-macos-binary
-          path: target/release/opengl
+          name: rendering-macos-binary
+          path: target/release/rendering
+
+  build-appimage:
+    runs-on: ubuntu-latest
+    needs: [build-linux]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rendering-linux-binary
+      - name: Build and package AppImage
+        uses: AppImageCrafters/build-appimage@master
+        with:
+          recipe: "./.github/appimage/AppImageBuilder.yml"
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-linux-appimage
+          path: "*.AppImage"

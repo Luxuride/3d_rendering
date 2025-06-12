@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Rendering
+Comment=A 3D rendering application.
+Exec=rendering
+Icon=icon
+Terminal=false
+Categories=Education;
