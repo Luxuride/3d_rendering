@@ -10,7 +10,6 @@ mod render;
 
 fn main() -> eframe::Result {
     env_logger::init();
-    println!("{}", *render::pipeline::SAMPLE_COUNT);
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default().with_inner_size([350.0, 380.0]),
         multisampling: *render::pipeline::SAMPLE_COUNT,

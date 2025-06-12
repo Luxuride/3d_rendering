@@ -66,7 +66,7 @@ impl Custom3d {
                             let renderer = &mut renderer.write().unwrap();
                             renderer.models.push(model);
                         } else {
-                            println!("Error loading model");
+                            eprint!("Error loading model");
                         }
                         loading.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     }
