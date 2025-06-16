@@ -18,6 +18,7 @@ use crate::render::pipeline::{
     SelectedPipeline, model_pipeline, outline_pipeline, wireframe_pipeline,
 };
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
+use crate::render::buffers::light::light_raw::LightRaw;
 
 pub struct RendererRenderResources {
     pub wgpu_render_state: RenderState,
@@ -49,20 +50,21 @@ impl RendererRenderResources {
 
         let camera_bind_group_layout = Self::camera_bind_group_layout(device);
         let transform_bind_group_layout = TransformRaw::transform_bind_group_layout(device);
+        let light_bind_group_layout = LightRaw::light_bind_group_layout(device);
 
         let wireframe_pipeline = wireframe_pipeline(
             device,
-            &[&camera_bind_group_layout, &transform_bind_group_layout],
+            &[&camera_bind_group_layout, &transform_bind_group_layout, &light_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
         let model_pipeline = model_pipeline(
             device,
-            &[&camera_bind_group_layout, &transform_bind_group_layout],
+            &[&camera_bind_group_layout, &transform_bind_group_layout, &light_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
         let outline_pipeline = outline_pipeline(
             device,
-            &[&camera_bind_group_layout, &transform_bind_group_layout],
+            &[&camera_bind_group_layout, &transform_bind_group_layout, &light_bind_group_layout],
             wgpu_render_state.target_format.into(),
         );
 
