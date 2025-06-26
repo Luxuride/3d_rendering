@@ -1,11 +1,11 @@
 use camera_raw::CameraRaw;
-use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3, perspective};
+use glam::{Mat4, Vec3};
 use std::time::Duration;
 
 pub mod camera_raw;
 
 pub struct CameraBuilder {
-    position: Point3<f32>,
+    position: Vec3,
     yaw: f32,
     pitch: f32,
     fov_y: f32,
@@ -19,7 +19,7 @@ pub struct CameraBuilder {
 impl Default for CameraBuilder {
     fn default() -> Self {
         Self {
-            position: Point3::new(0.0, 0.0, 0.0),
+            position: Vec3::ZERO,
             yaw: 90.0,
             pitch: 0.0,
             fov_y: 45.0,
@@ -34,7 +34,7 @@ impl Default for CameraBuilder {
 
 impl CameraBuilder {
     #[allow(dead_code)]
-    pub fn position(mut self, position: Point3<f32>) -> Self {
+    pub fn position(mut self, position: Vec3) -> Self {
         self.position = position;
         self
     }
@@ -95,7 +95,7 @@ impl CameraBuilder {
 }
 
 pub struct Camera {
-    position: Point3<f32>,
+    position: Vec3,
     yaw: f32,
     pitch: f32,
     fov_y: f32,
@@ -108,15 +108,13 @@ pub struct Camera {
 
 impl Camera {
     pub fn get_camera_uniform(&self) -> CameraRaw {
-        CameraRaw::new(self.build_view_projection_matrix().into())
+        CameraRaw::new(self.build_view_projection_matrix().to_cols_array_2d())
     }
 
     // Processes raw mouse delta to update yaw and pitch (orientation).
     pub fn process_mouse_movement(&mut self, mouse_delta_x: f32, mouse_delta_y: f32) {
         self.yaw += mouse_delta_x * self.sensitivity;
-        // Pitch: Current implementation for "inverted Y-axis" (moving mouse down makes camera look down)
         self.pitch -= mouse_delta_y * self.sensitivity;
-
         self.pitch = self.pitch.clamp(-89.0, 89.0);
     }
 
@@ -143,11 +141,11 @@ impl Camera {
     }
 
     // Get the forward vector of the camera (orientation).
-    fn get_forward_vector(&self) -> Vector3<f32> {
+    fn get_forward_vector(&self) -> Vec3 {
         let yaw_rad = self.yaw.to_radians();
         let pitch_rad = self.pitch.to_radians();
 
-        Vector3::new(
+        Vec3::new(
             pitch_rad.cos() * yaw_rad.cos(),
             pitch_rad.sin(),
             pitch_rad.cos() * yaw_rad.sin(),
@@ -156,33 +154,36 @@ impl Camera {
     }
 
     // Get the right vector of the camera (orientation).
-    fn get_right_vector(&self) -> Vector3<f32> {
-        self.get_forward_vector()
-            .cross(Vector3::unit_y())
-            .normalize()
+    fn get_right_vector(&self) -> Vec3 {
+        self.get_forward_vector().cross(Vec3::Y).normalize()
     }
 
     // Get the up vector of the camera (orientation).
-    fn get_up_vector(&self) -> Vector3<f32> {
+    fn get_up_vector(&self) -> Vec3 {
         self.get_right_vector()
             .cross(self.get_forward_vector())
             .normalize()
     }
 
     // Build the view matrix (transforms world coordinates to camera coordinates).
-    pub fn build_view_matrix(&self) -> Matrix4<f32> {
+    pub fn build_view_matrix(&self) -> Mat4 {
         let forward = self.get_forward_vector();
         let target = self.position + forward;
-        Matrix4::look_at_rh(self.position, target, self.get_up_vector())
+        Mat4::look_at_rh(self.position, target, self.get_up_vector())
     }
 
     // Build the projection matrix (transforms camera coordinates to clip space).
-    pub fn build_projection_matrix(&self) -> Matrix4<f32> {
-        perspective(Deg(self.fov_y), self.aspect_ratio, self.z_near, self.z_far)
+    pub fn build_projection_matrix(&self) -> Mat4 {
+        Mat4::perspective_rh(
+            self.fov_y.to_radians(),
+            self.aspect_ratio,
+            self.z_near,
+            self.z_far,
+        )
     }
 
     // Build the combined view-projection matrix.
-    pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
+    pub fn build_view_projection_matrix(&self) -> Mat4 {
         self.build_projection_matrix() * self.build_view_matrix()
     }
 
@@ -190,7 +191,7 @@ impl Camera {
     pub fn update_aspect_ratio(&mut self, new_aspect_ratio: f32) {
         self.aspect_ratio = new_aspect_ratio;
     }
-    pub fn get_position(&self) -> &Point3<f32> {
+    pub fn get_position(&self) -> &Vec3 {
         &self.position
     }
     pub fn get_fov(&self) -> f32 {

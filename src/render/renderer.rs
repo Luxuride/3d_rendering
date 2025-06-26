@@ -1,7 +1,7 @@
-use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui_wgpu::RenderState;
 use eframe::wgpu::util::DeviceExt;
 use eframe::{egui, egui_wgpu, wgpu};
+use glam::Quat;
 use std::sync::{Arc, RwLock};
 use wgpu::Device;
 
@@ -86,13 +86,13 @@ impl RendererRenderResources {
                 device,
                 &wgpu_render_state.queue,
                 (0.0, 1.0, 0.0),
-                Transform::default().rotation(Quaternion::from_angle_z(Deg(90.0))),
+                Transform::default().rotation(Quat::from_rotation_z(90.0_f32.to_radians())),
             ),
             z_axis_mesh_builder().build(device).to_model(
                 device,
                 &wgpu_render_state.queue,
                 (0.0, 0.0, 1.0),
-                Transform::default().rotation(Quaternion::from_angle_y(Deg(-90.0))),
+                Transform::default().rotation(Quat::from_rotation_y((-90.0_f32).to_radians())),
             ),
         ];
 

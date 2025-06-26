@@ -1,33 +1,33 @@
 use crate::render::buffers::transform::transform_raw::TransformRaw;
-use cgmath::{One, Quaternion, Vector3, Zero};
+use glam::{Mat4, Quat, Vec3};
 
 pub mod transform_raw;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Transform {
-    pub position: cgmath::Vector3<f32>,
-    pub rotation: cgmath::Quaternion<f32>,
-    pub scale: cgmath::Vector3<f32>,
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
 }
 
 impl Default for Transform {
     fn default() -> Self {
         Self {
-            position: Vector3::zero(),
-            rotation: Quaternion::one(),
-            scale: Vector3::new(1.0, 1.0, 1.0),
+            position: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::ONE,
         }
     }
 }
 
 impl Transform {
     pub(crate) fn to_raw(self) -> TransformRaw {
-        let transform = cgmath::Matrix4::from_translation(self.position)
-            * cgmath::Matrix4::from(self.rotation)
-            * cgmath::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
-        TransformRaw::new(transform.into())
+        let transform = Mat4::from_translation(self.position)
+            * Mat4::from_quat(self.rotation)
+            * Mat4::from_scale(self.scale);
+        TransformRaw::new(transform.to_cols_array_2d())
     }
-    pub fn rotation(mut self, rotation: Quaternion<f32>) -> Self {
+    pub fn rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }

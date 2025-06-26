@@ -1,7 +1,7 @@
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
-use cgmath::Point3;
 use eframe::{egui, egui_wgpu};
+use glam::Vec3;
 use std::sync::atomic::AtomicU8;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -23,7 +23,7 @@ impl Custom3d {
         let wgpu_render_state = cc.wgpu_render_state.clone()?;
         let camera = CameraBuilder::default()
             .z_far(500.0)
-            .position(Point3::new(0.0, 0.0, -5.0))
+            .position(Vec3::new(0.0, 0.0, -5.0))
             .build();
 
         let renderer = Arc::new(RwLock::new(RendererRenderResources::new(
