@@ -8,16 +8,14 @@ pub struct Material {
 }
 
 impl Material {
-    pub fn new(diffuse_texture: &texture_raw::TextureRaw, diffuse_bind_group: wgpu::BindGroup) -> Self {
+    pub fn new(
+        diffuse_texture: &texture_raw::TextureRaw,
+        diffuse_bind_group: wgpu::BindGroup,
+    ) -> Self {
         Self {
             diffuse_texture: diffuse_texture.clone(),
             diffuse_bind_group,
         }
-    }
-
-    // Getter methods
-    pub fn get_diffuse_texture(&self) -> &texture_raw::TextureRaw {
-        &self.diffuse_texture
     }
 
     pub fn get_diffuse_bind_group(&self) -> &wgpu::BindGroup {

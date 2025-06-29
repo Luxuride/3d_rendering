@@ -11,14 +11,9 @@ pub struct SimpleAnimation {
 }
 
 impl SimpleAnimation {
-    // Getter method
-    pub fn get_animation_time(&self) -> u128 {
-        self.animation_time
-    }
-
-    // Setter method
-    pub fn set_animation_time(&mut self, animation_time: u128) {
-        self.animation_time = animation_time;
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Self { animation_time: 0 }
     }
 }
 
@@ -31,11 +26,14 @@ impl Animation for SimpleAnimation {
     fn get_animation_transform(&self, transform: &Transform) -> Transform {
         let mut transform = *transform;
         let pos = self.animation_time.min(10000 - (self.animation_time));
-        transform.set_position(transform.get_position() + Vec3::new(
-            pos as f32 * 4.0 / 10000.0,
-            pos as f32 * 2.2 / 10000.0,
-            pos as f32 * 2.1 / 10000.0,
-        ));
+        transform.set_position(
+            transform.get_position()
+                + Vec3::new(
+                    pos as f32 * 4.0 / 10000.0,
+                    pos as f32 * 2.2 / 10000.0,
+                    pos as f32 * 2.1 / 10000.0,
+                ),
+        );
         transform
     }
 }

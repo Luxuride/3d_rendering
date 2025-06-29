@@ -155,11 +155,6 @@ impl RendererRenderResources {
         &mut self.models
     }
 
-    // Setter methods
-    pub fn set_selected_pipeline(&mut self, selected_pipeline: SelectedPipeline) {
-        self.selected_pipeline = selected_pipeline;
-    }
-
     pub fn get_selected_pipeline_mut(&mut self) -> &mut SelectedPipeline {
         &mut self.selected_pipeline
     }
@@ -172,12 +167,10 @@ impl RendererRenderResources {
         if let Some(model_idx) = selected_model {
             if model_idx < self.get_models().len() {
                 let selected_model = &self.get_models()[model_idx];
-                self.set_outline(Some(selected_model.clone_untextured(
-                    &self.get_wgpu_render_state().device,
-                    &self.get_wgpu_render_state().queue,
-                )));
-            } else {
-                self.set_outline(None);
+                let device = &self.get_wgpu_render_state().device;
+                let queue = &self.get_wgpu_render_state().queue;
+                let outline_model = selected_model.clone_untextured(device, queue);
+                self.set_outline(Some(outline_model));
             }
         } else {
             self.set_outline(None);

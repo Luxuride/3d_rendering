@@ -22,7 +22,10 @@ impl Custom3d {
                     "Z: {:.2}",
                     self.get_camera().get_position().z
                 )));
-                ui.add(Label::new(format!("FOV: {:.2}", self.get_camera().get_fov())));
+                ui.add(Label::new(format!(
+                    "FOV: {:.2}",
+                    self.get_camera().get_fov()
+                )));
             });
             ui.horizontal(|ui| {
                 let mut renderer = self.get_renderer().write().unwrap();
@@ -40,7 +43,8 @@ impl Custom3d {
             let button = ui.button("Add model");
             ui.add(Label::new(format!(
                 "Loading {} models",
-                self.get_loading().load(std::sync::atomic::Ordering::Relaxed)
+                self.get_loading()
+                    .load(std::sync::atomic::Ordering::Relaxed)
             )));
             let loading = self.get_loading().clone();
             if button.clicked() {

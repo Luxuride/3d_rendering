@@ -1,6 +1,5 @@
 use anyhow::Result;
 use eframe::wgpu;
-use eframe::wgpu::{BindGroup, BindGroupLayout, Device};
 use image::GenericImageView;
 use std::path::Path;
 
@@ -19,19 +18,6 @@ impl TextureRaw {
             view,
             sampler,
         }
-    }
-
-    // Getter methods
-    pub fn get_texture(&self) -> &wgpu::Texture {
-        &self.texture
-    }
-
-    pub fn get_view(&self) -> &wgpu::TextureView {
-        &self.view
-    }
-
-    pub fn get_sampler(&self) -> &wgpu::Sampler {
-        &self.sampler
     }
 
     pub fn load_texture(
@@ -100,34 +86,32 @@ impl TextureRaw {
 
         Ok(Self::new(texture, view, sampler))
     }
+
     pub fn from_color(
-        device: &Device,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
-        color: (f32, f32, f32), // RGB
+        color: (f32, f32, f32),
         label: &str,
     ) -> Result<Self> {
-        let r = (color.0 * 255.0).round() as u8;
-        let g = (color.1 * 255.0).round() as u8;
-        let b = (color.2 * 255.0).round() as u8;
-        let a = 255; // Fully opaque
-
-        let rgba_data = [r, g, b, a];
-
-        let size = wgpu::Extent3d {
-            width: 1,
-            height: 1,
-            depth_or_array_layers: 1,
-        };
-        let texture_label = Some(label);
+        let data = vec![
+            (color.0 * 255.0) as u8,
+            (color.1 * 255.0) as u8,
+            (color.2 * 255.0) as u8,
+            255,
+        ];
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: texture_label,
-            size,
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some(label),
             view_formats: &[],
         });
 
@@ -138,30 +122,43 @@ impl TextureRaw {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &rgba_data,
+            &data,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4),
                 rows_per_image: Some(1),
             },
-            size,
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
 
-        let view = texture.create_view(&Default::default());
-        let sampler = device.create_sampler(&Default::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
 
         Ok(Self::new(texture, view, sampler))
     }
-    pub fn diffuse_bind_group_layout(device: &Device) -> BindGroupLayout {
+
+    pub fn diffuse_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
                     },
                     count: None,
                 },
@@ -172,10 +169,11 @@ impl TextureRaw {
                     count: None,
                 },
             ],
-            label: Some("texture_bind_group_layout"),
+            label: Some("diffuse_bind_group_layout"),
         })
     }
-    pub fn diffuse_bind_group(&self, device: &Device) -> BindGroup {
+
+    pub fn diffuse_bind_group(&self, device: &wgpu::Device) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &Self::diffuse_bind_group_layout(device),
             entries: &[
@@ -188,7 +186,7 @@ impl TextureRaw {
                     resource: wgpu::BindingResource::Sampler(&self.sampler),
                 },
             ],
-            label: None,
+            label: Some("diffuse_bind_group"),
         })
     }
 }

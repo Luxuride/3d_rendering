@@ -79,10 +79,6 @@ impl Custom3d {
         &mut self.selected_model
     }
 
-    pub fn set_show_help(&mut self, show_help: bool) {
-        self.show_help = show_help;
-    }
-
     pub fn set_prev_frame(&mut self, prev_frame: Instant) {
         self.prev_frame = prev_frame;
     }
@@ -129,7 +125,10 @@ impl Custom3d {
 
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
-            RendererCallback::new(self.get_camera().get_camera_uniform(), self.get_renderer().clone()),
+            RendererCallback::new(
+                self.get_camera().get_camera_uniform(),
+                self.get_renderer().clone(),
+            ),
         ));
     }
 

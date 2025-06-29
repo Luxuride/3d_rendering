@@ -17,7 +17,6 @@ use std::time::Duration;
 
 mod material;
 pub mod mesh;
-pub mod outline;
 
 pub struct Model {
     meshes: Vec<Mesh>,
@@ -107,7 +106,8 @@ impl Model {
     }
 
     pub fn clone_untextured(&self, device: &Device, queue: &Queue) -> Self {
-        let new_meshes = self.get_meshes()
+        let new_meshes = self
+            .get_meshes()
             .iter()
             .map(|mesh| mesh.with_material(device, 0))
             .collect::<Vec<_>>();
@@ -117,10 +117,7 @@ impl Model {
         Self::new(
             device,
             new_meshes,
-            vec![Material::new(
-                &diffuse_texture,
-                diffuse_bind_group,
-            )],
+            vec![Material::new(&diffuse_texture, diffuse_bind_group)],
             self.get_transform(),
         )
     }
@@ -160,10 +157,7 @@ impl Model {
                 continue;
             };
             let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
-            materials.push(Material::new(
-                &diffuse_texture,
-                diffuse_bind_group,
-            ));
+            materials.push(Material::new(&diffuse_texture, diffuse_bind_group));
         }
         let meshes = models
             .into_iter()
@@ -214,15 +208,6 @@ impl Model {
 
     pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
         &self.transform_bind_group
-    }
-
-    pub fn get_animation(&self) -> &Option<Box<dyn Animation + Send + Sync>> {
-        &self.animation
-    }
-
-    // Setter methods
-    pub fn set_animation(&mut self, animation: Option<Box<dyn Animation + Send + Sync>>) {
-        self.animation = animation;
     }
 
     pub fn add_animation_time(&mut self, delta_time: Duration) {
