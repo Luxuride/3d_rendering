@@ -40,16 +40,62 @@ impl Custom3d {
             prev_frame: Instant::now(),
         })
     }
+
+    // Getter methods
+    pub fn get_camera(&self) -> &Camera {
+        &self.camera
+    }
+
+    pub fn get_camera_mut(&mut self) -> &mut Camera {
+        &mut self.camera
+    }
+
+    pub fn get_renderer(&self) -> &Arc<RwLock<RendererRenderResources>> {
+        &self.renderer
+    }
+
+    pub fn get_selected_model(&self) -> Option<usize> {
+        self.selected_model
+    }
+
+    pub fn get_loading(&self) -> &Arc<AtomicU8> {
+        &self.loading
+    }
+
+    pub fn get_show_help(&self) -> bool {
+        self.show_help
+    }
+
+    pub fn get_prev_frame(&self) -> Instant {
+        self.prev_frame
+    }
+
+    // Setter methods
+    pub fn set_selected_model(&mut self, selected_model: Option<usize>) {
+        self.selected_model = selected_model;
+    }
+
+    pub fn get_selected_model_mut(&mut self) -> &mut Option<usize> {
+        &mut self.selected_model
+    }
+
+    pub fn set_show_help(&mut self, show_help: bool) {
+        self.show_help = show_help;
+    }
+
+    pub fn set_prev_frame(&mut self, prev_frame: Instant) {
+        self.prev_frame = prev_frame;
+    }
 }
 
 impl eframe::App for Custom3d {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let curr_frame = Instant::now();
-        let delta_time: Duration = curr_frame - self.prev_frame;
-        self.prev_frame = curr_frame;
+        let delta_time: Duration = curr_frame - self.get_prev_frame();
+        self.set_prev_frame(curr_frame);
         {
-            let mut renderer = self.renderer.write().unwrap();
-            for model in renderer.models.iter_mut() {
+            let mut renderer = self.get_renderer().write().unwrap();
+            for model in renderer.get_models_mut().iter_mut() {
                 model.add_animation_time(delta_time);
             }
         }
@@ -57,7 +103,7 @@ impl eframe::App for Custom3d {
             self.handle_input(i, &delta_time);
         });
         self.top_panel(&delta_time, ctx);
-        if self.show_help {
+        if self.get_show_help() {
             self.help(ctx);
         }
         self.right_panel(ctx);
@@ -72,9 +118,9 @@ impl Custom3d {
             egui::Vec2::new(ui.available_width(), ui.available_height()),
             egui::Sense::click_and_drag(),
         );
-        self.camera
+        self.get_camera_mut()
             .update_aspect_ratio(rect.width() / rect.height());
-        self.camera
+        self.get_camera_mut()
             .process_mouse_movement(response.drag_motion().x, response.drag_motion().y);
 
         if response.clicked() {
@@ -83,7 +129,7 @@ impl Custom3d {
 
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
-            RendererCallback::new(self.camera.get_camera_uniform(), self.renderer.clone()),
+            RendererCallback::new(self.get_camera().get_camera_uniform(), self.get_renderer().clone()),
         ));
     }
 
@@ -97,29 +143,30 @@ impl Custom3d {
                 return;
             }
 
-            let ray_direction = screen_to_world_ray(screen_pos, viewport_size, &self.camera);
+            let ray_direction = screen_to_world_ray(screen_pos, viewport_size, self.get_camera());
 
             let mut closest_model: Option<usize> = None;
             let mut closest_distance = f32::INFINITY;
 
-            let renderer = self.renderer.read().unwrap();
-            for (model_idx, model) in renderer.models.iter().enumerate() {
-                if let Some(intersection) =
-                    model.ray_intersection(self.camera.get_position(), ray_direction)
-                {
-                    let distance = intersection.distance(self.camera.get_position());
-                    if distance < closest_distance && distance.is_finite() {
-                        closest_distance = distance;
-                        closest_model = Some(model_idx);
+            {
+                let renderer = self.get_renderer().read().unwrap();
+                for (model_idx, model) in renderer.get_models().iter().enumerate() {
+                    if let Some(intersection) =
+                        model.ray_intersection(self.get_camera().get_position(), ray_direction)
+                    {
+                        let distance = intersection.distance(self.get_camera().get_position());
+                        if distance < closest_distance && distance.is_finite() {
+                            closest_distance = distance;
+                            closest_model = Some(model_idx);
+                        }
                     }
                 }
             }
 
-            self.selected_model = closest_model;
+            self.set_selected_model(closest_model);
 
-            drop(renderer);
-            let mut renderer = self.renderer.write().unwrap();
-            renderer.update_selected_model(self.selected_model);
+            let mut renderer = self.get_renderer().write().unwrap();
+            renderer.update_selected_model(self.get_selected_model());
         }
     }
 }

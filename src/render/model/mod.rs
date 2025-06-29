@@ -3,7 +3,6 @@ use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::intersection::{Triangle, moller_trumbore_intersection};
-use crate::render::model;
 use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
 use anyhow::Result;
@@ -77,7 +76,7 @@ impl Model {
         let mut closest_intersection: Option<Vec3> = None;
         let mut closest_distance = f32::INFINITY;
 
-        for mesh in &self.meshes {
+        for mesh in self.get_meshes() {
             let vertices = mesh.get_vertices();
             let indices = mesh.get_indices();
 
@@ -108,21 +107,21 @@ impl Model {
     }
 
     pub fn clone_untextured(&self, device: &Device, queue: &Queue) -> Self {
-        let mut new_meshes = self.meshes.clone();
-        for mesh in new_meshes.iter_mut() {
-            mesh.material = 0;
-        }
+        let new_meshes = self.get_meshes()
+            .iter()
+            .map(|mesh| mesh.with_material(device, 0))
+            .collect::<Vec<_>>();
         let diffuse_texture =
             TextureRaw::from_color(device, queue, (1.0, 0.0, 0.0), "color_texture").unwrap();
         let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
         Self::new(
             device,
             new_meshes,
-            vec![Material {
-                diffuse_texture,
+            vec![Material::new(
+                &diffuse_texture,
                 diffuse_bind_group,
-            }],
-            self.transform,
+            )],
+            self.get_transform(),
         )
     }
     pub fn load_model(
@@ -161,10 +160,10 @@ impl Model {
                 continue;
             };
             let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
-            materials.push(model::Material {
-                diffuse_texture,
+            materials.push(Material::new(
+                &diffuse_texture,
                 diffuse_bind_group,
-            });
+            ));
         }
         let meshes = models
             .into_iter()
@@ -175,10 +174,10 @@ impl Model {
 
     pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
         render_pass.set_bind_group(1, self.get_transform_bind_group(), &[]);
-        for mesh in self.meshes.iter() {
+        for mesh in self.get_meshes() {
             render_pass.set_bind_group(
                 2,
-                &self.materials[mesh.get_material()].diffuse_bind_group,
+                self.get_materials()[mesh.get_material()].get_diffuse_bind_group(),
                 &[],
             );
 
@@ -188,21 +187,44 @@ impl Model {
             render_pass.draw_indexed(0..mesh.get_num_indices(), 0, 0..1);
         }
     }
+
+    // Getter methods
+    pub fn get_meshes(&self) -> &[Mesh] {
+        &self.meshes
+    }
+
+    pub fn get_materials(&self) -> &[Material] {
+        &self.materials
+    }
+
     pub fn get_transform(&self) -> Transform {
         match self.animation.as_ref() {
             Some(animation) => animation.get_animation_transform(&self.transform),
             None => self.transform,
         }
     }
+
     pub fn get_transform_mut(&mut self) -> &mut Transform {
         &mut self.transform
     }
+
     pub fn get_transform_buffer(&self) -> &wgpu::Buffer {
         &self.transform_buffer
     }
+
     pub fn get_transform_bind_group(&self) -> &wgpu::BindGroup {
         &self.transform_bind_group
     }
+
+    pub fn get_animation(&self) -> &Option<Box<dyn Animation + Send + Sync>> {
+        &self.animation
+    }
+
+    // Setter methods
+    pub fn set_animation(&mut self, animation: Option<Box<dyn Animation + Send + Sync>>) {
+        self.animation = animation;
+    }
+
     pub fn add_animation_time(&mut self, delta_time: Duration) {
         if let Some(animation) = self.animation.as_mut() {
             animation.update_time(delta_time);

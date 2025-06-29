@@ -12,27 +12,27 @@ impl Custom3d {
                 ui.add(Label::new("Camera:"));
                 ui.add(Label::new(format!(
                     "X: {:.2}",
-                    self.camera.get_position().x
+                    self.get_camera().get_position().x
                 )));
                 ui.add(Label::new(format!(
                     "Y: {:.2}",
-                    self.camera.get_position().y
+                    self.get_camera().get_position().y
                 )));
                 ui.add(Label::new(format!(
                     "Z: {:.2}",
-                    self.camera.get_position().z
+                    self.get_camera().get_position().z
                 )));
-                ui.add(Label::new(format!("FOV: {:.2}", self.camera.get_fov())));
+                ui.add(Label::new(format!("FOV: {:.2}", self.get_camera().get_fov())));
             });
             ui.horizontal(|ui| {
-                let renderer = &mut self.renderer.write().unwrap();
+                let mut renderer = self.get_renderer().write().unwrap();
                 ui.radio_value(
-                    &mut renderer.selected_pipeline,
+                    renderer.get_selected_pipeline_mut(),
                     SelectedPipeline::Wireframe,
                     "Wireframe",
                 );
                 ui.radio_value(
-                    &mut renderer.selected_pipeline,
+                    renderer.get_selected_pipeline_mut(),
                     SelectedPipeline::Textured,
                     "Textured",
                 );
@@ -40,11 +40,11 @@ impl Custom3d {
             let button = ui.button("Add model");
             ui.add(Label::new(format!(
                 "Loading {} models",
-                self.loading.load(std::sync::atomic::Ordering::Relaxed)
+                self.get_loading().load(std::sync::atomic::Ordering::Relaxed)
             )));
-            let loading = self.loading.clone();
+            let loading = self.get_loading().clone();
             if button.clicked() {
-                let renderer = self.renderer.clone();
+                let renderer = self.get_renderer().clone();
                 std::thread::spawn(move || {
                     if let Some(file) = rfd::FileDialog::new()
                         .add_filter("obj", &["obj"])
@@ -53,7 +53,7 @@ impl Custom3d {
                         loading.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let model = {
                             let wgpu_render_state =
-                                &renderer.read().unwrap().wgpu_render_state.clone();
+                                &renderer.read().unwrap().get_wgpu_render_state().clone();
                             Model::load_model(
                                 &file,
                                 &wgpu_render_state.device,
@@ -63,8 +63,8 @@ impl Custom3d {
                             .ok()
                         };
                         if let Some(model) = model {
-                            let renderer = &mut renderer.write().unwrap();
-                            renderer.models.push(model);
+                            let mut renderer = renderer.write().unwrap();
+                            renderer.get_models_mut().push(model);
                         } else {
                             eprint!("Error loading model");
                         }

@@ -4,14 +4,36 @@ use eframe::wgpu::{BindGroup, BindGroupLayout, Device};
 use image::GenericImageView;
 use std::path::Path;
 
+#[derive(Clone)]
 pub struct TextureRaw {
     #[allow(unused)]
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    sampler: wgpu::Sampler,
 }
 
 impl TextureRaw {
+    pub fn new(texture: wgpu::Texture, view: wgpu::TextureView, sampler: wgpu::Sampler) -> Self {
+        Self {
+            texture,
+            view,
+            sampler,
+        }
+    }
+
+    // Getter methods
+    pub fn get_texture(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+
+    pub fn get_view(&self) -> &wgpu::TextureView {
+        &self.view
+    }
+
+    pub fn get_sampler(&self) -> &wgpu::Sampler {
+        &self.sampler
+    }
+
     pub fn load_texture(
         file_path: &Path,
         label: &str,
@@ -76,11 +98,7 @@ impl TextureRaw {
         let view = texture.create_view(&Default::default());
         let sampler = device.create_sampler(&Default::default());
 
-        Ok(Self {
-            texture,
-            view,
-            sampler,
-        })
+        Ok(Self::new(texture, view, sampler))
     }
     pub fn from_color(
         device: &Device,
@@ -132,11 +150,7 @@ impl TextureRaw {
         let view = texture.create_view(&Default::default());
         let sampler = device.create_sampler(&Default::default());
 
-        Ok(Self {
-            texture,
-            view,
-            sampler,
-        })
+        Ok(Self::new(texture, view, sampler))
     }
     pub fn diffuse_bind_group_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

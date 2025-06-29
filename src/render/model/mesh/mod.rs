@@ -84,7 +84,7 @@ pub struct Mesh {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     index_count: u32,
-    pub material: usize,
+    material: usize,
     vertices: Vec<VertexRaw>,
     indices: Vec<u32>,
 }
@@ -117,15 +117,20 @@ impl Mesh {
             indices,
         }
     }
-    pub fn get_num_indices(&self) -> u32 {
-        self.index_count
-    }
+
+    // Getter methods
     pub fn get_vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
+
     pub fn get_index_buffer(&self) -> &wgpu::Buffer {
         &self.index_buffer
     }
+
+    pub fn get_index_count(&self) -> u32 {
+        self.index_count
+    }
+
     pub fn get_material(&self) -> usize {
         self.material
     }
@@ -138,6 +143,21 @@ impl Mesh {
         &self.indices
     }
 
+    // Legacy method for backward compatibility
+    pub fn get_num_indices(&self) -> u32 {
+        self.get_index_count()
+    }
+
+    // Create a new mesh with a different material
+    pub fn with_material(&self, device: &Device, material: usize) -> Self {
+        Self::new(
+            device,
+            self.get_vertices().to_vec(),
+            self.get_indices().to_vec(),
+            material,
+        )
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_model(
         self,
@@ -147,10 +167,7 @@ impl Mesh {
         transform: Transform,
     ) -> Model {
         let texture = TextureRaw::from_color(device, queue, color, "color_texture").unwrap();
-        let material = Material {
-            diffuse_bind_group: texture.diffuse_bind_group(device),
-            diffuse_texture: texture,
-        };
+        let material = Material::new(&texture, texture.diffuse_bind_group(device));
         Model::new(device, vec![self], vec![material], transform)
     }
 }

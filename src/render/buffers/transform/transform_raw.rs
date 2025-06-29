@@ -6,10 +6,12 @@ use eframe::wgpu::{BindGroupLayout, Device};
 pub struct TransformRaw {
     model: [[f32; 4]; 4],
 }
+
 impl TransformRaw {
     pub fn new(model: [[f32; 4]; 4]) -> Self {
         Self { model }
     }
+
     pub fn transform_bind_group_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -25,7 +27,12 @@ impl TransformRaw {
             label: Some("transform_bind_group_layout"),
         })
     }
+
     pub fn get_model(&self) -> &[[f32; 4]; 4] {
         &self.model
+    }
+
+    pub fn get_model_mut(&mut self) -> &mut [[f32; 4]; 4] {
+        &mut self.model
     }
 }

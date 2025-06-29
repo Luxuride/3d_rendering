@@ -1,5 +1,6 @@
 use crate::render::animation::Animation;
 use crate::render::buffers::transform::Transform;
+use glam::Vec3;
 use std::time::Duration;
 
 const ANIMATION_DURATION: u128 = 10000;
@@ -8,6 +9,19 @@ const ANIMATION_DURATION: u128 = 10000;
 pub struct SimpleAnimation {
     animation_time: u128,
 }
+
+impl SimpleAnimation {
+    // Getter method
+    pub fn get_animation_time(&self) -> u128 {
+        self.animation_time
+    }
+
+    // Setter method
+    pub fn set_animation_time(&mut self, animation_time: u128) {
+        self.animation_time = animation_time;
+    }
+}
+
 impl Animation for SimpleAnimation {
     fn update_time(&mut self, delta_time: Duration) {
         self.animation_time += delta_time.as_millis();
@@ -17,9 +31,11 @@ impl Animation for SimpleAnimation {
     fn get_animation_transform(&self, transform: &Transform) -> Transform {
         let mut transform = *transform;
         let pos = self.animation_time.min(10000 - (self.animation_time));
-        transform.position.x += pos as f32 * 4.0 / 10000.0;
-        transform.position.y += pos as f32 * 2.2 / 10000.0;
-        transform.position.z += pos as f32 * 2.1 / 10000.0;
+        transform.set_position(transform.get_position() + Vec3::new(
+            pos as f32 * 4.0 / 10000.0,
+            pos as f32 * 2.2 / 10000.0,
+            pos as f32 * 2.1 / 10000.0,
+        ));
         transform
     }
 }

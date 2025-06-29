@@ -20,8 +20,8 @@ use crate::render::pipeline::{
 use eframe::wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, Buffer, RenderPipeline};
 
 pub struct RendererRenderResources {
-    pub wgpu_render_state: RenderState,
-    pub selected_pipeline: SelectedPipeline,
+    wgpu_render_state: RenderState,
+    selected_pipeline: SelectedPipeline,
 
     // Pipelines
     wireframe_pipeline: RenderPipeline,
@@ -33,9 +33,9 @@ pub struct RendererRenderResources {
     camera_uniform_buffer: Buffer,
 
     // Instances
-    pub outline: Option<Model>,
-    pub axis: [Model; 3],
-    pub models: Vec<Model>,
+    outline: Option<Model>,
+    axis: [Model; 3],
+    models: Vec<Model>,
 }
 
 impl RendererRenderResources {
@@ -110,43 +110,101 @@ impl RendererRenderResources {
         }
     }
 
+    // Getter methods
+    pub fn get_wgpu_render_state(&self) -> &RenderState {
+        &self.wgpu_render_state
+    }
+
+    pub fn get_selected_pipeline(&self) -> SelectedPipeline {
+        self.selected_pipeline
+    }
+
+    pub fn get_wireframe_pipeline(&self) -> &RenderPipeline {
+        &self.wireframe_pipeline
+    }
+
+    pub fn get_model_pipeline(&self) -> &RenderPipeline {
+        &self.model_pipeline
+    }
+
+    pub fn get_outline_pipeline(&self) -> &RenderPipeline {
+        &self.outline_pipeline
+    }
+
+    pub fn get_camera_bind_group(&self) -> &BindGroup {
+        &self.camera_bind_group
+    }
+
+    pub fn get_camera_uniform_buffer(&self) -> &Buffer {
+        &self.camera_uniform_buffer
+    }
+
+    pub fn get_outline(&self) -> &Option<Model> {
+        &self.outline
+    }
+
+    pub fn get_axis(&self) -> &[Model; 3] {
+        &self.axis
+    }
+
+    pub fn get_models(&self) -> &Vec<Model> {
+        &self.models
+    }
+
+    pub fn get_models_mut(&mut self) -> &mut Vec<Model> {
+        &mut self.models
+    }
+
+    // Setter methods
+    pub fn set_selected_pipeline(&mut self, selected_pipeline: SelectedPipeline) {
+        self.selected_pipeline = selected_pipeline;
+    }
+
+    pub fn get_selected_pipeline_mut(&mut self) -> &mut SelectedPipeline {
+        &mut self.selected_pipeline
+    }
+
+    pub fn set_outline(&mut self, outline: Option<Model>) {
+        self.outline = outline;
+    }
+
     pub fn update_selected_model(&mut self, selected_model: Option<usize>) {
         if let Some(model_idx) = selected_model {
-            if model_idx < self.models.len() {
-                let selected_model = &self.models[model_idx];
-                self.outline = Some(selected_model.clone_untextured(
-                    &self.wgpu_render_state.device,
-                    &self.wgpu_render_state.queue,
-                ));
+            if model_idx < self.get_models().len() {
+                let selected_model = &self.get_models()[model_idx];
+                self.set_outline(Some(selected_model.clone_untextured(
+                    &self.get_wgpu_render_state().device,
+                    &self.get_wgpu_render_state().queue,
+                )));
             } else {
-                self.outline = None;
+                self.set_outline(None);
             }
         } else {
-            self.outline = None;
+            self.set_outline(None);
         }
     }
 
     pub fn prepare(&self, _device: &Device, queue: &wgpu::Queue, camera_uniform: CameraRaw) {
         queue.write_buffer(
-            &self.camera_uniform_buffer,
+            self.get_camera_uniform_buffer(),
             0,
             bytemuck::cast_slice(&[camera_uniform]),
         );
-        for model in self.models.iter() {
+        for model in self.get_models().iter() {
             queue.write_buffer(
                 model.get_transform_buffer(),
                 0,
                 bytemuck::cast_slice(&[model.get_transform().to_raw()]),
             );
         }
-        if let Some(model) = &self.outline {
+        if let Some(model) = self.get_outline() {
             queue.write_buffer(
                 model.get_transform_buffer(),
                 0,
                 bytemuck::cast_slice(&[model.get_transform().to_raw()]),
             );
         }
-        for axis in self.axis.iter() {
+        for axis in self.get_axis().iter() {
             queue.write_buffer(
                 axis.get_transform_buffer(),
                 0,
@@ -156,27 +214,27 @@ impl RendererRenderResources {
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+        render_pass.set_bind_group(0, self.get_camera_bind_group(), &[]);
 
         // Render outline
-        if let Some(outline) = &self.outline {
-            render_pass.set_pipeline(&self.outline_pipeline);
+        if let Some(outline) = self.get_outline() {
+            render_pass.set_pipeline(self.get_outline_pipeline());
             outline.draw(render_pass);
         }
 
         // Render models
-        render_pass.set_pipeline(match self.selected_pipeline {
-            SelectedPipeline::Wireframe => &self.wireframe_pipeline,
-            SelectedPipeline::Textured => &self.model_pipeline,
+        render_pass.set_pipeline(match self.get_selected_pipeline() {
+            SelectedPipeline::Wireframe => self.get_wireframe_pipeline(),
+            SelectedPipeline::Textured => self.get_model_pipeline(),
         });
 
-        for model in self.models.iter() {
+        for model in self.get_models().iter() {
             model.draw(render_pass);
         }
 
         // Render axis
-        render_pass.set_pipeline(&self.wireframe_pipeline);
-        for axis in self.axis.iter() {
+        render_pass.set_pipeline(self.get_wireframe_pipeline());
+        for axis in self.get_axis().iter() {
             axis.draw(render_pass);
         }
     }
@@ -229,6 +287,15 @@ impl RendererCallback {
             renderer,
         }
     }
+
+    // Getter methods
+    pub fn get_camera_uniform(&self) -> &CameraRaw {
+        &self.camera_uniform
+    }
+
+    pub fn get_renderer(&self) -> &Arc<RwLock<RendererRenderResources>> {
+        &self.renderer
+    }
 }
 
 impl egui_wgpu::CallbackTrait for RendererCallback {
@@ -240,8 +307,8 @@ impl egui_wgpu::CallbackTrait for RendererCallback {
         _egui_encoder: &mut wgpu::CommandEncoder,
         _callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        let renderer = &mut self.renderer.write().unwrap();
-        renderer.prepare(device, queue, self.camera_uniform);
+        let renderer = &mut self.get_renderer().write().unwrap();
+        renderer.prepare(device, queue, *self.get_camera_uniform());
         vec![]
     }
 
@@ -251,7 +318,7 @@ impl egui_wgpu::CallbackTrait for RendererCallback {
         render_pass: &mut wgpu::RenderPass<'static>,
         _callback_resources: &egui_wgpu::CallbackResources,
     ) {
-        let renderer = self.renderer.read().unwrap();
+        let renderer = self.get_renderer().read().unwrap();
         renderer.paint(render_pass);
     }
 }
