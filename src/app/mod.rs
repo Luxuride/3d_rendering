@@ -133,39 +133,36 @@ impl Custom3d {
     }
 
     fn handle_model_selection(&mut self, rect: egui::Rect, hover_pos: Option<egui::Pos2>) {
-        if let Some(pos) = hover_pos {
-            let viewport_size = Vec2::new(rect.width(), rect.height());
-            let screen_pos = Vec2::new(pos.x - rect.min.x, pos.y - rect.min.y);
+        let Some(pos) = hover_pos else { return };
+        let viewport_size = Vec2::new(rect.width(), rect.height());
+        let screen_pos = Vec2::new(pos.x - rect.min.x, pos.y - rect.min.y);
 
-            // Validate viewport size
-            if viewport_size.x <= 0.0 || viewport_size.y <= 0.0 {
-                return;
-            }
+        // Validate viewport size
+        if viewport_size.x <= 0.0 || viewport_size.y <= 0.0 {
+            return;
+        }
 
-            let ray_direction = screen_to_world_ray(screen_pos, viewport_size, self.get_camera());
+        let camera_pos = self.get_camera().get_position();
+        let ray_direction = screen_to_world_ray(screen_pos, viewport_size, self.get_camera());
 
-            let mut closest_model: Option<usize> = None;
-            let mut closest_distance = f32::INFINITY;
+        let mut closest_model: Option<usize> = None;
+        let mut closest_distance = f32::INFINITY;
 
-            {
-                let renderer = self.get_renderer().read().unwrap();
-                for (model_idx, model) in renderer.get_models().iter().enumerate() {
-                    if let Some(intersection) =
-                        model.ray_intersection(self.get_camera().get_position(), ray_direction)
-                    {
-                        let distance = intersection.distance(self.get_camera().get_position());
-                        if distance < closest_distance && distance.is_finite() {
-                            closest_distance = distance;
-                            closest_model = Some(model_idx);
-                        }
-                    }
+        let renderer = self.get_renderer().read().unwrap();
+        for (model_idx, model) in renderer.get_models().iter().enumerate() {
+            if let Some(intersection) = model.ray_intersection(camera_pos, ray_direction) {
+                let distance = intersection.distance(camera_pos);
+                if distance < closest_distance && distance.is_finite() {
+                    closest_distance = distance;
+                    closest_model = Some(model_idx);
                 }
             }
-
-            self.set_selected_model(closest_model);
-
-            let mut renderer = self.get_renderer().write().unwrap();
-            renderer.update_selected_model(self.get_selected_model());
         }
+        drop(renderer);
+
+        self.set_selected_model(closest_model);
+
+        let mut renderer = self.get_renderer().write().unwrap();
+        renderer.update_selected_model(self.get_selected_model());
     }
 }

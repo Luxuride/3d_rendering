@@ -93,19 +93,15 @@ pub fn moller_trumbore_intersection(
 }
 
 pub fn screen_to_world_ray(screen_pos: Vec2, viewport_size: Vec2, camera: &Camera) -> Vec3 {
-    // Normalize
     let ndc_x = (2.0 * screen_pos.x) / viewport_size.x - 1.0;
-    let ndc_y = 1.0 - (2.0 * screen_pos.y) / viewport_size.y; // Flip Y coordinate
+    let ndc_y = 1.0 - (2.0 * screen_pos.y) / viewport_size.y;
 
-    // Clip
     let ray_clip = Vec3::new(ndc_x, ndc_y, -1.0);
 
-    // Transform to eye space
-    let ray_eye = camera.build_view_projection_matrix().inverse()
+    let ray_eye = camera.build_projection_matrix().inverse()
         * Vec3::new(ray_clip.x, ray_clip.y, -1.0).extend(0.0);
     let ray_eye = Vec3::new(ray_eye.x, ray_eye.y, -1.0);
 
-    // Transform to world space
     let ray_world = camera.build_view_matrix().inverse() * ray_eye.extend(0.0);
     let ray_world = Vec3::new(ray_world.x, ray_world.y, ray_world.z).normalize();
 
