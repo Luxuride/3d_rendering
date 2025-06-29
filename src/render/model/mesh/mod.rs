@@ -85,6 +85,8 @@ pub struct Mesh {
     index_buffer: wgpu::Buffer,
     index_count: u32,
     pub material: usize,
+    vertices: Vec<VertexRaw>,
+    indices: Vec<u32>,
 }
 
 impl Mesh {
@@ -111,6 +113,8 @@ impl Mesh {
             index_buffer,
             index_count,
             material,
+            vertices,
+            indices,
         }
     }
     pub fn get_num_indices(&self) -> u32 {
@@ -125,6 +129,15 @@ impl Mesh {
     pub fn get_material(&self) -> usize {
         self.material
     }
+
+    pub fn get_vertices(&self) -> &[VertexRaw] {
+        &self.vertices
+    }
+
+    pub fn get_indices(&self) -> &[u32] {
+        &self.indices
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_model(
         self,

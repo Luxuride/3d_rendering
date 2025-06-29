@@ -2,6 +2,7 @@ use crate::render::animation::Animation;
 use crate::render::buffers::texture::texture_raw::TextureRaw;
 use crate::render::buffers::transform::Transform;
 use crate::render::buffers::transform::transform_raw::TransformRaw;
+use crate::render::intersection::{Triangle, moller_trumbore_intersection};
 use crate::render::model;
 use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
@@ -9,6 +10,7 @@ use anyhow::Result;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
+use glam::{Mat4, Vec3};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -57,6 +59,54 @@ impl Model {
             animation: None,
         }
     }
+
+    pub fn ray_intersection(&self, origin: Vec3, direction: Vec3) -> Option<Vec3> {
+        let transform_raw = self.get_transform().to_raw();
+        let model_matrix = transform_raw.get_model();
+        let model_matrix = Mat4::from_cols_array_2d(model_matrix);
+        let model_matrix_inv = model_matrix.inverse();
+
+        // Transform ray to model space
+        let model_origin = model_matrix_inv * origin.extend(1.0);
+        let model_origin = Vec3::new(model_origin.x, model_origin.y, model_origin.z);
+
+        let model_direction = model_matrix_inv * direction.extend(0.0);
+        let model_direction =
+            Vec3::new(model_direction.x, model_direction.y, model_direction.z).normalize();
+
+        let mut closest_intersection: Option<Vec3> = None;
+        let mut closest_distance = f32::INFINITY;
+
+        for mesh in &self.meshes {
+            let vertices = mesh.get_vertices();
+            let indices = mesh.get_indices();
+
+            for triangle_index in 0..(indices.len() / 3) {
+                if let Some(triangle) = Triangle::from_vertices(vertices, indices, triangle_index) {
+                    if let Some(intersection) =
+                        moller_trumbore_intersection(model_origin, model_direction, triangle)
+                    {
+                        let distance = intersection.distance(model_origin);
+                        if distance < closest_distance {
+                            closest_distance = distance;
+                            closest_intersection = Some(intersection);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Transform intersection back to world space
+        closest_intersection.map(|intersection| {
+            let world_intersection = model_matrix * intersection.extend(1.0);
+            Vec3::new(
+                world_intersection.x,
+                world_intersection.y,
+                world_intersection.z,
+            )
+        })
+    }
+
     pub fn clone_untextured(&self, device: &Device, queue: &Queue) -> Self {
         let mut new_meshes = self.meshes.clone();
         for mesh in new_meshes.iter_mut() {

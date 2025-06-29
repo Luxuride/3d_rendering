@@ -1,4 +1,5 @@
 use eframe::wgpu;
+use std::mem::size_of;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -16,6 +17,11 @@ impl VertexRaw {
             normal,
         }
     }
+
+    pub fn position(&self) -> [f32; 3] {
+        self.position
+    }
+
     const ATTRIBS: [wgpu::VertexAttribute; 3] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
 

@@ -191,8 +191,8 @@ impl Camera {
     pub fn update_aspect_ratio(&mut self, new_aspect_ratio: f32) {
         self.aspect_ratio = new_aspect_ratio;
     }
-    pub fn get_position(&self) -> &Vec3 {
-        &self.position
+    pub fn get_position(&self) -> Vec3 {
+        self.position
     }
     pub fn get_fov(&self) -> f32 {
         self.fov_y

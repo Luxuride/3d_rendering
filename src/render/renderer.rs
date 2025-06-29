@@ -110,6 +110,22 @@ impl RendererRenderResources {
         }
     }
 
+    pub fn update_selected_model(&mut self, selected_model: Option<usize>) {
+        if let Some(model_idx) = selected_model {
+            if model_idx < self.models.len() {
+                let selected_model = &self.models[model_idx];
+                self.outline = Some(selected_model.clone_untextured(
+                    &self.wgpu_render_state.device,
+                    &self.wgpu_render_state.queue,
+                ));
+            } else {
+                self.outline = None;
+            }
+        } else {
+            self.outline = None;
+        }
+    }
+
     pub fn prepare(&self, _device: &Device, queue: &wgpu::Queue, camera_uniform: CameraRaw) {
         queue.write_buffer(
             &self.camera_uniform_buffer,
@@ -130,27 +146,74 @@ impl RendererRenderResources {
                 bytemuck::cast_slice(&[model.get_transform().to_raw()]),
             );
         }
+        for axis in self.axis.iter() {
+            queue.write_buffer(
+                axis.get_transform_buffer(),
+                0,
+                bytemuck::cast_slice(&[axis.get_transform().to_raw()]),
+            );
+        }
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass<'_>) {
-        render_pass.set_pipeline(&self.wireframe_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        for axis in self.axis.iter() {
-            axis.draw(render_pass);
+
+        // Render outline
+        if let Some(outline) = &self.outline {
+            render_pass.set_pipeline(&self.outline_pipeline);
+            outline.draw(render_pass);
         }
-        match self.selected_pipeline {
-            SelectedPipeline::Wireframe => render_pass.set_pipeline(&self.wireframe_pipeline),
-            SelectedPipeline::Textured => render_pass.set_pipeline(&self.model_pipeline),
-        }
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+        // Render models
+        render_pass.set_pipeline(match self.selected_pipeline {
+            SelectedPipeline::Wireframe => &self.wireframe_pipeline,
+            SelectedPipeline::Textured => &self.model_pipeline,
+        });
+
         for model in self.models.iter() {
             model.draw(render_pass);
         }
-        if let Some(model) = &self.outline {
-            render_pass.set_pipeline(&self.outline_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            model.draw(render_pass);
+
+        // Render axis
+        render_pass.set_pipeline(&self.wireframe_pipeline);
+        for axis in self.axis.iter() {
+            axis.draw(render_pass);
         }
+    }
+
+    fn camera_bind_group_layout(device: &Device) -> BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: Some("camera_bind_group_layout"),
+        })
+    }
+
+    fn camera_uniform_buffer(device: &Device, camera_uniform: CameraRaw) -> Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
+    fn camera_bind_group(device: &Device, layout: &BindGroupLayout, buffer: &Buffer) -> BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        })
     }
 }
 
@@ -175,60 +238,20 @@ impl egui_wgpu::CallbackTrait for RendererCallback {
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
-        _: &mut egui_wgpu::CallbackResources,
+        _callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        self.renderer
-            .read()
-            .unwrap()
-            .prepare(device, queue, self.camera_uniform);
-        Vec::new()
+        let renderer = &mut self.renderer.write().unwrap();
+        renderer.prepare(device, queue, self.camera_uniform);
+        vec![]
     }
 
     fn paint(
         &self,
         _info: egui::PaintCallbackInfo,
         render_pass: &mut wgpu::RenderPass<'static>,
-        _: &egui_wgpu::CallbackResources,
+        _callback_resources: &egui_wgpu::CallbackResources,
     ) {
-        self.renderer.read().unwrap().paint(render_pass);
-    }
-}
-
-impl RendererRenderResources {
-    fn camera_bind_group_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            label: Some("camera_bind_group_layout"),
-        })
-    }
-    fn camera_uniform_buffer(device: &Device, camera_uniform: CameraRaw) -> Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-    fn camera_bind_group(
-        device: &Device,
-        camera_bind_group_layout: &BindGroupLayout,
-        camera_uniform_buffer: &Buffer,
-    ) -> BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: camera_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: camera_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        })
+        let renderer = self.renderer.read().unwrap();
+        renderer.paint(render_pass);
     }
 }

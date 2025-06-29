@@ -12,7 +12,7 @@ impl Custom3d {
                     ui.radio_value(
                         &mut self.selected_model,
                         Some(model_index),
-                        format!("Model {}", model_index),
+                        format!("Model {model_index}"),
                     );
                 }
                 let selected_model = match self.selected_model {
