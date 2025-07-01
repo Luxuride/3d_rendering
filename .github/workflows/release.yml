@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -121,33 +124,31 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: rendering-linux-binary
-          path: ./artifacts
+          path: ./artifacts/linux
       - name: Download Windows Binary
         uses: actions/download-artifact@v4
         with:
           name: rendering-windows-binary
-          path: ./artifacts
+          path: ./artifacts/windows
       - name: Download macOS Binary
         uses: actions/download-artifact@v4
         with:
           name: rendering-macos-binary
-          path: ./artifacts
+          path: ./artifacts/macos
       - name: Download AppImage
         uses: actions/download-artifact@v4
         with:
           name: rendering-linux-appimage
-          path: ./artifacts
-      - name: Create GitHub Release
+          path: ./artifacts/appimage
+      - name: Rename artifacts for unique release asset names
+        run: |
+          mkdir ./release
+          mv ./artifacts/linux/rendering ./release/rendering-linux
+          mv ./artifacts/macos/rendering ./release/rendering-macos
+          mv ./artifacts/windows/rendering.exe ./release/rendering-windows.exe
+          mv ./artifacts/appimage/rendering-0.1.0-x86_64.AppImage ./release/rendering-linux.AppImage
+      - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
           files: |
-            artifacts/rendering-linux-binary
-            artifacts/rendering-windows-binary/rendering.exe
-            artifacts/rendering-macos-binary/rendering
-            artifacts/rendering-linux-appimage/*.AppImage
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            release/*
