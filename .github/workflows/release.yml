@@ -2,8 +2,6 @@ name: Rust Rendering App Checks and Build
 
 on:
   push:
-    branches:
-      - master
     tags:
       - 'v*'
 
