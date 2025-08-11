@@ -20,6 +20,7 @@ pub struct TransformMsg {
     pub seq: u64,
 }
 
+// Generates AppBehaviourEvent via macro
 #[derive(NetworkBehaviour)]
 pub struct AppBehaviour {
     pub gossipsub: gossipsub::Behaviour,
@@ -143,9 +144,9 @@ pub fn start_p2p(topic_str: &str) -> Result<P2PInfo> {
 }
 
 pub fn serialize_transform(msg: &TransformMsg) -> Result<Vec<u8>> {
-    serde_json::to_vec(msg).context("serialize transform")
+    serde_json::to_vec(msg).context("serialize transform".to_string())
 }
 
 pub fn deserialize_transform(bytes: &[u8]) -> Result<TransformMsg> {
-    serde_json::from_slice(bytes).context("deserialize transform")
+    serde_json::from_slice(bytes).context("deserialize transform".to_string())
 }
