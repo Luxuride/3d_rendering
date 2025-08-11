@@ -6,9 +6,18 @@ use eframe::wgpu::Features;
 use std::sync::Arc;
 
 mod app;
+mod networking;
 mod render;
 
 fn main() -> eframe::Result {
+    // Work around EGL unwrap panic by forcing Vulkan and X11 when available
+    unsafe {
+        // Set both env vars that wgpu recognizes across versions
+        std::env::set_var("WGPU_BACKEND", "vulkan");
+        std::env::set_var("WGPU_BACKENDS", "vulkan");
+        // Comment this out if you prefer native Wayland and Vulkan works there.
+        std::env::set_var("WINIT_UNIX_BACKEND", "x11");
+    }
     env_logger::init();
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default().with_inner_size([350.0, 380.0]),

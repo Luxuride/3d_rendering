@@ -1,9 +1,10 @@
+use crate::networking::sync::TransformSync;
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::intersection::screen_to_world_ray;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use eframe::{egui, egui_wgpu};
 use glam::{Vec2, Vec3};
-use std::sync::atomic::AtomicU8;
+use std::sync::atomic::{AtomicU8, AtomicU64};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -17,6 +18,8 @@ pub struct Custom3d {
     loading: Arc<AtomicU8>,
     show_help: bool,
     prev_frame: Instant,
+    last_sync_ms: std::sync::Arc<AtomicU64>,
+    peers_count: std::sync::Arc<AtomicU8>,
 }
 
 impl Custom3d {
@@ -31,14 +34,45 @@ impl Custom3d {
             wgpu_render_state,
             &camera,
         )));
-        Some(Self {
-            camera,
-            renderer,
-            selected_model: None,
-            loading: Arc::new(AtomicU8::new(0)),
-            show_help: false,
-            prev_frame: Instant::now(),
-        })
+        // Start background networking sync on a separate runtime thread.
+        {
+            let renderer_clone = renderer.clone();
+            let peers_count = std::sync::Arc::new(AtomicU8::new(0));
+            let last_sync_ms = std::sync::Arc::new(AtomicU64::new(0));
+            let peers_count_clone = peers_count.clone();
+            let last_sync_ms_clone = last_sync_ms.clone();
+            std::thread::spawn(move || {
+                if let Ok(rt) = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                {
+                    rt.block_on(async move {
+                        if let Ok(sync) = TransformSync::new(
+                            renderer_clone,
+                            peers_count_clone,
+                            last_sync_ms_clone,
+                        ) {
+                            sync.start().await.ok();
+                        }
+                        futures::future::pending::<()>().await;
+                    });
+                }
+            });
+            // store arcs on self after thread spawn
+            // They are set in the returned Self below
+
+            // Return Self with arcs
+            Some(Self {
+                camera,
+                renderer,
+                selected_model: None,
+                loading: Arc::new(AtomicU8::new(0)),
+                show_help: false,
+                prev_frame: Instant::now(),
+                last_sync_ms,
+                peers_count,
+            })
+        }
     }
 
     // Getter methods

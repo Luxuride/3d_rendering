@@ -1,9 +1,10 @@
 use crate::render::buffers::transform::transform_raw::TransformRaw;
 use glam::{Mat4, Quat, Vec3};
+use serde::{Deserialize, Serialize};
 
 pub mod transform_raw;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Transform {
     position: Vec3,
     rotation: Quat,
@@ -42,6 +43,22 @@ impl Transform {
 
     pub fn get_scale_mut(&mut self) -> &mut Vec3 {
         &mut self.scale
+    }
+
+    pub fn get_scale(&self) -> Vec3 {
+        self.scale
+    }
+
+    pub fn set_scale(&mut self, scale: Vec3) {
+        self.scale = scale;
+    }
+
+    pub fn get_rotation(&self) -> Quat {
+        self.rotation
+    }
+
+    pub fn set_rotation(&mut self, rotation: Quat) {
+        self.rotation = rotation;
     }
 
     pub fn rotation(mut self, rotation: Quat) -> Self {
