@@ -32,7 +32,7 @@ pub fn model_pipeline(
         bind_group_layouts,
         color_target_state,
         PolygonMode::Fill,
-        None,
+        Some(Face::Back),
         Some("vs_main"),
     )
 }
@@ -121,7 +121,7 @@ fn pipeline(
         depth_stencil: Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::LessEqual,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),

@@ -2,7 +2,7 @@
   description = "Rust development environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -58,7 +58,7 @@
             libGL              # OpenGL shared library
             libGLU             # OpenGL Utility library
             freeglut           # OpenGL utility toolkit
-            glxinfo            # GLX information utility
+            mesa-demos            # GLX information utility
             virtualgl          # X server GL provider
             fontconfig
 
