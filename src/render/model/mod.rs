@@ -80,15 +80,17 @@ impl Model {
             let indices = mesh.get_indices();
 
             for triangle_index in 0..(indices.len() / 3) {
-                if let Some(triangle) = Triangle::from_vertices(vertices, indices, triangle_index) {
-                    if let Some(intersection) =
-                        moller_trumbore_intersection(model_origin, model_direction, triangle)
-                    {
-                        let distance = intersection.distance(model_origin);
-                        if distance < closest_distance {
-                            closest_distance = distance;
-                            closest_intersection = Some(intersection);
-                        }
+                if let Some(triangle) = Triangle::from_vertices(vertices, indices, triangle_index)
+                    && let Some(intersection) = moller_trumbore_intersection(
+                        model_origin,
+                        model_direction,
+                        triangle.clone(),
+                    )
+                {
+                    let distance = intersection.distance(model_origin);
+                    if distance < closest_distance {
+                        closest_distance = distance;
+                        closest_intersection = Some(intersection);
                     }
                 }
             }
