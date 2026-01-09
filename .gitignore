@@ -19,3 +19,5 @@ result-*
 .direnv
 .idea
 .vscode
+
+flake.lock

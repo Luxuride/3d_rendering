@@ -6,10 +6,13 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils }@inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import <nixpkgs> {
+          inherit system;
+          config.allowUnfree = true;
+        };
         # Read the file relative to the flake's root
         overrides = (builtins.fromTOML (builtins.readFile (self + "/rust-toolchain.toml")));
         libPath = with pkgs; lib.makeLibraryPath [
