@@ -80,6 +80,7 @@ impl Model {
             let indices = mesh.get_indices();
 
             for triangle_index in 0..(indices.len() / 3) {
+                #[allow(clippy::collapsible_if)]
                 if let Some(triangle) = Triangle::from_vertices(vertices, indices, triangle_index) {
                     if let Some(intersection) =
                         moller_trumbore_intersection(model_origin, model_direction, triangle)
