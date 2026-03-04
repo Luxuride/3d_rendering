@@ -1,4 +1,5 @@
 use crate::app::Custom3d;
+use crate::game_logic::chess::Color;
 use eframe::egui;
 
 impl Custom3d {
@@ -79,6 +80,26 @@ impl Custom3d {
                 } else {
                     let mut renderer = self.get_renderer().write().unwrap();
                     renderer.set_outline(None);
+                }
+
+                if let Some(chess_state) = self.get_chess_state() {
+                    ui.separator();
+                    let side_to_move = match chess_state.game_state.side_to_move() {
+                        Color::White => "White",
+                        Color::Black => "Black",
+                    };
+                    ui.label(format!("Chess turn: {side_to_move}"));
+                    if let Some(square) = chess_state.selected_square {
+                        let file = (b'a' + square.file()) as char;
+                        let rank = square.rank() + 1;
+                        ui.label(format!("Selected: {file}{rank}"));
+                    } else {
+                        ui.label("Selected: none");
+                    }
+
+                    if let Some(err) = &chess_state.last_error {
+                        ui.label(format!("Move: {err}"));
+                    }
                 }
             });
     }

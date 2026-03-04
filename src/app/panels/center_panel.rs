@@ -4,6 +4,7 @@ use crate::render::model::Model;
 use crate::render::pipeline::SelectedPipeline;
 use eframe::egui;
 use eframe::egui::Label;
+use std::path::Path;
 
 impl Custom3d {
     pub fn center_panel(&mut self, ctx: &egui::Context) {
@@ -41,6 +42,7 @@ impl Custom3d {
                 );
             });
             let button = ui.button("Add model");
+            let chess_button = ui.button("Load chess board");
             ui.add(Label::new(format!(
                 "Loading {} models",
                 self.get_loading()
@@ -75,6 +77,11 @@ impl Custom3d {
                         loading.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     }
                 });
+            }
+            if chess_button.clicked()
+                && let Err(err) = self.load_chess_scene(Path::new("src/chess.obj"))
+            {
+                eprintln!("{err}");
             }
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
