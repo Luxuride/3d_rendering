@@ -83,7 +83,9 @@ impl Custom3d {
             {
                 eprintln!("{err}");
             }
-            egui::Frame::canvas(ui.style()).show(ui, |ui| {
+            egui::Frame::canvas(ui.style())
+                .fill(egui::Color32::from_gray(50))
+                .show(ui, |ui| {
                 self.custom_painting(ui);
             });
         });
