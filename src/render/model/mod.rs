@@ -254,6 +254,16 @@ impl Model {
         }
     }
 
+    pub fn draw_depth_only(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_bind_group(1, self.get_transform_bind_group(), &[]);
+        for mesh in self.get_meshes() {
+            render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
+            render_pass
+                .set_index_buffer(mesh.get_index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..mesh.get_num_indices(), 0, 0..1);
+        }
+    }
+
     // Getter methods
     pub fn get_meshes(&self) -> &[Mesh] {
         &self.meshes
