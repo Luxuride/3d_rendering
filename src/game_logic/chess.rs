@@ -141,7 +141,11 @@ impl ChessSceneState {
         }
     }
 
-    pub fn try_build_click_move(&self, model_index: usize, hit_point: Option<Vec3>) -> Option<Move> {
+    pub fn try_build_click_move(
+        &self,
+        model_index: usize,
+        hit_point: Option<Vec3>,
+    ) -> Option<Move> {
         if model_index != self.board_model_index {
             return None;
         }
@@ -152,7 +156,11 @@ impl ChessSceneState {
         Some(Move { from, to })
     }
 
-    pub fn apply_mapping_after_move(&mut self, from: Square, to: Square) -> Option<ModelMoveUpdate> {
+    pub fn apply_mapping_after_move(
+        &mut self,
+        from: Square,
+        to: Square,
+    ) -> Option<ModelMoveUpdate> {
         let moving_model_index = self.model_by_square.remove(&from)?;
         self.square_by_model.remove(&moving_model_index);
 
@@ -286,13 +294,7 @@ impl GameState {
 
         for (file, piece_type) in setup.into_iter().enumerate() {
             let square = Square::new(file as u8, rank).expect("valid back rank square");
-            self.set_piece(
-                square,
-                Some(Piece {
-                    piece_type,
-                    color,
-                }),
-            );
+            self.set_piece(square, Some(Piece { piece_type, color }));
         }
     }
 
@@ -415,7 +417,8 @@ impl GameState {
         let mut rank = from.rank() as i8 + rank_step;
 
         while file != to.file() as i8 || rank != to.rank() as i8 {
-            let square = Square::new(file as u8, rank as u8).expect("path square should be on board");
+            let square =
+                Square::new(file as u8, rank as u8).expect("path square should be on board");
             if self.piece_at(square).is_some() {
                 return false;
             }

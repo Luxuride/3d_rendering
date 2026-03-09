@@ -119,7 +119,10 @@ pub fn shadow_pipeline(device: &Device, bind_group_layouts: &[&BindGroupLayout])
     })
 }
 
-fn pipeline_layout(device: &Device, bind_group_layouts: &[&BindGroupLayout]) -> wgpu::PipelineLayout {
+fn pipeline_layout(
+    device: &Device,
+    bind_group_layouts: &[&BindGroupLayout],
+) -> wgpu::PipelineLayout {
     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("pipeline_layout"),
         bind_group_layouts,

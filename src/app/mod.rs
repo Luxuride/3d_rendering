@@ -97,15 +97,19 @@ impl Custom3d {
 
     pub fn load_chess_scene(&mut self, file_path: &Path) -> Result<(), String> {
         let (device, queue) = {
-            let renderer = self.get_renderer().read().map_err(|_| "Renderer lock poisoned")?;
+            let renderer = self
+                .get_renderer()
+                .read()
+                .map_err(|_| "Renderer lock poisoned")?;
             (
                 renderer.get_wgpu_render_state().device.clone(),
                 renderer.get_wgpu_render_state().queue.clone(),
             )
         };
 
-        let named_models = Model::load_named_models(file_path, &device, &queue, Transform::default())
-            .map_err(|err| format!("Failed to load chess model: {err}"))?;
+        let named_models =
+            Model::load_named_models(file_path, &device, &queue, Transform::default())
+                .map_err(|err| format!("Failed to load chess model: {err}"))?;
 
         let mut board_parts: Vec<Model> = Vec::new();
         let mut piece_template_parts: HashMap<(PieceType, Color), Vec<Model>> = HashMap::new();
@@ -121,8 +125,8 @@ impl Custom3d {
             }
         }
 
-        let board_template = merge_models(&device, board_parts)
-            .ok_or("Missing `board` object in chess.obj")?;
+        let board_template =
+            merge_models(&device, board_parts).ok_or("Missing `board` object in chess.obj")?;
         let piece_templates = piece_template_parts
             .into_iter()
             .filter_map(|(key, parts)| merge_models(&device, parts).map(|model| (key, model)))
@@ -253,8 +257,7 @@ impl Custom3d {
         chess_state.clear_last_error();
 
         if let Some(model_index) = closest_model {
-            if chess_state.try_select_piece_model(model_index).is_some()
-            {
+            if chess_state.try_select_piece_model(model_index).is_some() {
                 self.set_selected_model(Some(model_index));
                 if let Ok(mut renderer) = self.get_renderer().write() {
                     renderer.update_selected_model(self.get_selected_model());
@@ -263,12 +266,11 @@ impl Custom3d {
                 return;
             }
 
-            if let Some(chess_move) = chess_state.try_build_click_move(model_index, hit_point)
-            {
+            if let Some(chess_move) = chess_state.try_build_click_move(model_index, hit_point) {
                 match chess_state.game_state.apply_move(chess_move) {
                     Ok(()) => {
-                        let update = chess_state
-                            .apply_mapping_after_move(chess_move.from, chess_move.to);
+                        let update =
+                            chess_state.apply_mapping_after_move(chess_move.from, chess_move.to);
                         if let Ok(mut renderer) = self.get_renderer().write() {
                             apply_move_to_models(update, &mut renderer);
                             renderer.update_selected_model(None);
@@ -277,7 +279,8 @@ impl Custom3d {
                         self.set_selected_model(None);
                     }
                     Err(err) => {
-                        chess_state.last_error = Some(crate::game_logic::chess::move_error_message(err));
+                        chess_state.last_error =
+                            Some(crate::game_logic::chess::move_error_message(err));
                     }
                 }
                 self.chess_state = Some(chess_state);

@@ -510,7 +510,9 @@ impl RendererRenderResources {
     }
 
     fn light_view_projection(&self, light_direction: Vec3) -> Mat4 {
-        let (scene_min, scene_max) = self.scene_bounds().unwrap_or((Vec3::splat(-3.0), Vec3::splat(3.0)));
+        let (scene_min, scene_max) = self
+            .scene_bounds()
+            .unwrap_or((Vec3::splat(-3.0), Vec3::splat(3.0)));
         let center = (scene_min + scene_max) * 0.5;
         let extent = (scene_max - scene_min).max(Vec3::splat(1.0));
         let radius = extent.length() * 0.5;
@@ -523,14 +525,7 @@ impl RendererRenderResources {
             Vec3::Y
         };
         let view = Mat4::look_at_rh(light_position, center, up);
-        let projection = Mat4::orthographic_rh(
-            -radius,
-            radius,
-            -radius,
-            radius,
-            0.1,
-            radius * 8.0,
-        );
+        let projection = Mat4::orthographic_rh(-radius, radius, -radius, radius, 0.1, radius * 8.0);
         projection * view
     }
 
