@@ -3,6 +3,9 @@ script:
   - chmod +x rendering
   - mkdir -p AppDir/usr/bin
   - mv rendering AppDir/usr/bin
+  - mkdir -p AppDir/usr/share/rendering
+  - cp assets/chess.obj AppDir/usr/share/rendering/chess.obj
+  - cp assets/chess.mtl AppDir/usr/share/rendering/chess.mtl
   - mkdir -p AppDir/usr/share/icons
   - mv .github/appimage/icon.svg AppDir/usr/share/icons
   - mv .github/appimage/app.desktop AppDir

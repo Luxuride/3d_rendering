@@ -10,8 +10,6 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
 use glam::{Mat4, Vec3};
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use std::time::Duration;
 
@@ -154,21 +152,15 @@ impl Model {
         queue: &wgpu::Queue,
         transform: Transform,
     ) -> Result<Vec<NamedModel>> {
-        let dir = file_path.parent().unwrap();
-        let obj = File::open(file_path)?;
-        let mut obj_reader = BufReader::new(obj);
-        let (models, obj_materials) = tobj::load_obj_buf(
-            &mut obj_reader,
+        let (models, obj_materials) = tobj::load_obj(
+            file_path,
             &tobj::LoadOptions {
                 triangulate: true,
                 single_index: true,
                 ..Default::default()
             },
-            |p| {
-                let mat = File::open(dir.join(p)).unwrap();
-                tobj::load_mtl_buf(&mut BufReader::new(mat))
-            },
         )?;
+        let dir = file_path.parent().unwrap();
         let materials = Self::load_materials(dir, obj_materials?, device, queue)?;
 
         Ok(models

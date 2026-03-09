@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Install Rust toolchain (rustfmt)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -28,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain (clippy)
@@ -43,6 +47,8 @@ jobs:
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
@@ -51,6 +57,18 @@ jobs:
           toolchain: stable
       - name: Build project (Linux)
         run: cargo build --release
+      - name: Package Linux binary with assets
+        run: |
+          mkdir -p dist/linux/assets
+          cp target/release/rendering dist/linux/rendering
+          cp assets/chess.obj dist/linux/assets/chess.obj
+          cp assets/chess.mtl dist/linux/assets/chess.mtl
+          tar -czf rendering-linux.tar.gz -C dist/linux .
+      - name: Upload Linux Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-linux-package
+          path: rendering-linux.tar.gz
       - name: Upload Linux Binary
         uses: actions/upload-artifact@v4
         with:
@@ -62,6 +80,8 @@ jobs:
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
@@ -70,17 +90,27 @@ jobs:
           toolchain: stable
       - name: Build project (Windows)
         run: cargo build --release
-      - name: Upload Windows Binary
+      - name: Package Windows binary with assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist/windows/assets -Force | Out-Null
+          Copy-Item target/release/rendering.exe dist/windows/rendering.exe
+          Copy-Item assets/chess.obj dist/windows/assets/chess.obj
+          Copy-Item assets/chess.mtl dist/windows/assets/chess.mtl
+          Compress-Archive -Path dist/windows/* -DestinationPath rendering-windows.zip -Force
+      - name: Upload Windows Package
         uses: actions/upload-artifact@v4
         with:
-          name: rendering-windows-binary
-          path: target/release/rendering.exe
+          name: rendering-windows-package
+          path: rendering-windows.zip
 
   build-macos:
     runs-on: macos-latest
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
@@ -89,17 +119,26 @@ jobs:
           toolchain: stable
       - name: Build project (macOS)
         run: cargo build --release
-      - name: Upload macOS Binary
+      - name: Package macOS binary with assets
+        run: |
+          mkdir -p dist/macos/assets
+          cp target/release/rendering dist/macos/rendering
+          cp assets/chess.obj dist/macos/assets/chess.obj
+          cp assets/chess.mtl dist/macos/assets/chess.mtl
+          tar -czf rendering-macos.tar.gz -C dist/macos .
+      - name: Upload macOS Package
         uses: actions/upload-artifact@v4
         with:
-          name: rendering-macos-binary
-          path: target/release/rendering
+          name: rendering-macos-package
+          path: rendering-macos.tar.gz
 
   build-appimage:
     runs-on: ubuntu-latest
     needs: [build-linux]
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
@@ -120,20 +159,20 @@ jobs:
     needs: [build-linux, build-windows, build-macos, build-appimage]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Download Linux Binary
+      - name: Download Linux Package
         uses: actions/download-artifact@v4
         with:
-          name: rendering-linux-binary
+          name: rendering-linux-package
           path: ./artifacts/linux
-      - name: Download Windows Binary
+      - name: Download Windows Package
         uses: actions/download-artifact@v4
         with:
-          name: rendering-windows-binary
+          name: rendering-windows-package
           path: ./artifacts/windows
-      - name: Download macOS Binary
+      - name: Download macOS Package
         uses: actions/download-artifact@v4
         with:
-          name: rendering-macos-binary
+          name: rendering-macos-package
           path: ./artifacts/macos
       - name: Download AppImage
         uses: actions/download-artifact@v4
@@ -143,9 +182,9 @@ jobs:
       - name: Rename artifacts for unique release asset names
         run: |
           mkdir ./release
-          mv ./artifacts/linux/rendering ./release/rendering-linux
-          mv ./artifacts/macos/rendering ./release/rendering-macos
-          mv ./artifacts/windows/rendering.exe ./release/rendering-windows.exe
+          mv ./artifacts/linux/rendering-linux.tar.gz ./release/rendering-linux.tar.gz
+          mv ./artifacts/macos/rendering-macos.tar.gz ./release/rendering-macos.tar.gz
+          mv ./artifacts/windows/rendering-windows.zip ./release/rendering-windows.zip
           mv ./artifacts/appimage/rendering-0.1.0-x86_64.AppImage ./release/rendering-linux.AppImage
       - name: Release
         uses: softprops/action-gh-release@v2
