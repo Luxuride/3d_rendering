@@ -1,6 +1,7 @@
 use crate::render::buffers::texture::texture_raw;
 use eframe::wgpu;
 
+#[derive(Clone)]
 pub struct Material {
     #[allow(dead_code)]
     diffuse_texture: texture_raw::TextureRaw,

@@ -18,6 +18,11 @@ use std::time::Duration;
 mod material;
 pub mod mesh;
 
+pub struct NamedModel {
+    pub name: String,
+    pub model: Model,
+}
+
 pub struct Model {
     meshes: Vec<Mesh>,
     materials: Vec<Material>,
@@ -128,6 +133,27 @@ impl Model {
         queue: &wgpu::Queue,
         transform: Transform,
     ) -> Result<Self> {
+        let named_models = Self::load_named_models(file_path, device, queue, transform)?;
+        let (meshes, materials) = named_models.into_iter().fold(
+            (Vec::new(), Vec::new()),
+            |(mut meshes, mut materials), named_model| {
+                let model = named_model.model;
+                meshes.extend_from_slice(model.get_meshes());
+                if materials.is_empty() {
+                    materials.extend_from_slice(model.get_materials());
+                }
+                (meshes, materials)
+            },
+        );
+        Ok(Self::new(device, meshes, materials, transform))
+    }
+
+    pub fn load_named_models(
+        file_path: &Path,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        transform: Transform,
+    ) -> Result<Vec<NamedModel>> {
         let dir = file_path.parent().unwrap();
         let obj = File::open(file_path)?;
         let mut obj_reader = BufReader::new(obj);
@@ -143,8 +169,27 @@ impl Model {
                 tobj::load_mtl_buf(&mut BufReader::new(mat))
             },
         )?;
+        let materials = Self::load_materials(dir, obj_materials?, device, queue)?;
+
+        Ok(models
+            .into_iter()
+            .map(|obj_model| {
+                let name = obj_model.name.clone();
+                let mesh = MeshBuilder::from(obj_model).build(device);
+                let model = Self::new(device, vec![mesh], materials.clone(), transform);
+                NamedModel { name, model }
+            })
+            .collect())
+    }
+
+    fn load_materials(
+        dir: &Path,
+        obj_materials: Vec<tobj::Material>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<Vec<Material>> {
         let mut materials = Vec::new();
-        for m in obj_materials? {
+        for m in obj_materials {
             let diffuse_texture = if let Some(diffuse_texture) = m.diffuse_texture {
                 TextureRaw::load_texture(
                     &dir.join(&diffuse_texture),
@@ -160,11 +205,37 @@ impl Model {
             let diffuse_bind_group = diffuse_texture.diffuse_bind_group(device);
             materials.push(Material::new(&diffuse_texture, diffuse_bind_group));
         }
-        let meshes = models
-            .into_iter()
-            .map(|m| MeshBuilder::from(m).build(device))
-            .collect::<Vec<_>>();
-        Ok(Self::new(device, meshes, materials, transform))
+        Ok(materials)
+    }
+
+    pub fn instance_with_transform(&self, device: &wgpu::Device, transform: Transform) -> Self {
+        Self::new(
+            device,
+            self.get_meshes().to_vec(),
+            self.get_materials().to_vec(),
+            transform,
+        )
+    }
+
+    pub fn world_bounds(&self) -> Option<(Vec3, Vec3)> {
+        let transform_raw = self.get_transform().to_raw();
+        let model_matrix = Mat4::from_cols_array_2d(transform_raw.get_model());
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        let mut has_vertices = false;
+
+        for mesh in self.get_meshes() {
+            for vertex in mesh.get_vertices() {
+                let local = Vec3::from_array(vertex.position());
+                let world = model_matrix * local.extend(1.0);
+                let world = Vec3::new(world.x, world.y, world.z);
+                min = min.min(world);
+                max = max.max(world);
+                has_vertices = true;
+            }
+        }
+
+        has_vertices.then_some((min, max))
     }
 
     pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
@@ -176,6 +247,16 @@ impl Model {
                 &[],
             );
 
+            render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
+            render_pass
+                .set_index_buffer(mesh.get_index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..mesh.get_num_indices(), 0, 0..1);
+        }
+    }
+
+    pub fn draw_depth_only(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_bind_group(1, self.get_transform_bind_group(), &[]);
+        for mesh in self.get_meshes() {
             render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
             render_pass
                 .set_index_buffer(mesh.get_index_buffer().slice(..), wgpu::IndexFormat::Uint32);

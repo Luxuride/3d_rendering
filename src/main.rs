@@ -6,6 +6,7 @@ use eframe::wgpu::Features;
 use std::sync::Arc;
 
 mod app;
+mod game_logic;
 mod render;
 
 fn main() -> eframe::Result {
