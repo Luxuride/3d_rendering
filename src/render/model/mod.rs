@@ -5,13 +5,13 @@ use crate::render::buffers::transform::transform_raw::TransformRaw;
 use crate::render::intersection::{Triangle, moller_trumbore_intersection};
 use crate::render::model::material::Material;
 use crate::render::model::mesh::{Mesh, MeshBuilder};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use eframe::wgpu::{Device, Queue};
 use glam::{Mat4, Vec3};
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::Path;
 use std::time::Duration;
 
@@ -154,21 +154,23 @@ impl Model {
         queue: &wgpu::Queue,
         transform: Transform,
     ) -> Result<Vec<NamedModel>> {
-        let dir = file_path.parent().unwrap();
-        let obj = File::open(file_path)?;
-        let mut obj_reader = BufReader::new(obj);
-        let (models, obj_materials) = tobj::load_obj_buf(
-            &mut obj_reader,
+        let mut obj = File::open(file_path)?;
+        if Self::is_git_lfs_pointer(&mut obj)? {
+            bail!(
+                "{} is a Git LFS pointer, not an OBJ mesh. Fetch real assets with `git lfs pull` (or package the real file) and try again.",
+                file_path.display()
+            );
+        }
+
+        let (models, obj_materials) = tobj::load_obj(
+            file_path,
             &tobj::LoadOptions {
                 triangulate: true,
                 single_index: true,
                 ..Default::default()
             },
-            |p| {
-                let mat = File::open(dir.join(p)).unwrap();
-                tobj::load_mtl_buf(&mut BufReader::new(mat))
-            },
         )?;
+        let dir = file_path.parent().unwrap();
         let materials = Self::load_materials(dir, obj_materials?, device, queue)?;
 
         Ok(models
@@ -180,6 +182,14 @@ impl Model {
                 NamedModel { name, model }
             })
             .collect())
+    }
+
+    fn is_git_lfs_pointer(file: &mut File) -> Result<bool> {
+        let mut reader = BufReader::new(file);
+        let mut first_line = String::new();
+        reader.read_line(&mut first_line)?;
+        reader.seek(SeekFrom::Start(0))?;
+        Ok(first_line.trim() == "version https://git-lfs.github.com/spec/v1")
     }
 
     fn load_materials(

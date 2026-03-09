@@ -4,7 +4,6 @@ use crate::render::model::Model;
 use crate::render::pipeline::SelectedPipeline;
 use eframe::egui;
 use eframe::egui::Label;
-use std::path::Path;
 
 impl Custom3d {
     pub fn center_panel(&mut self, ctx: &egui::Context) {
@@ -66,6 +65,9 @@ impl Custom3d {
                                 &wgpu_render_state.queue,
                                 Transform::default(),
                             )
+                            .map_err(|err| {
+                                eprintln!("Failed to import {}: {err}", file.display());
+                            })
                             .ok()
                         };
                         if let Some(model) = model {
@@ -79,7 +81,7 @@ impl Custom3d {
                 });
             }
             if chess_button.clicked()
-                && let Err(err) = self.load_chess_scene(Path::new("src/chess.obj"))
+                && let Err(err) = self.import_chess_scene()
             {
                 eprintln!("{err}");
             }

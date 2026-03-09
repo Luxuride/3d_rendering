@@ -10,7 +10,7 @@ use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use eframe::{egui, egui_wgpu};
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU8;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -93,6 +93,94 @@ impl Custom3d {
 
     pub fn set_prev_frame(&mut self, prev_frame: Instant) {
         self.prev_frame = prev_frame;
+    }
+
+    pub fn resolve_chess_scene_path() -> Result<PathBuf, String> {
+        let mut candidates: Vec<PathBuf> = Vec::new();
+
+        if let Ok(explicit) = std::env::var("RENDERING_CHESS_OBJ") {
+            candidates.push(PathBuf::from(explicit));
+        }
+
+        if let Ok(cwd) = std::env::current_dir() {
+            candidates.extend([
+                cwd.join("assets").join("chess.obj"),
+                cwd.join("chess.obj"),
+                cwd.join("src").join("chess.obj"),
+            ]);
+        }
+
+        if let Ok(appdir) = std::env::var("APPDIR") {
+            candidates.push(
+                Path::new(&appdir)
+                    .join("usr")
+                    .join("share")
+                    .join("rendering")
+                    .join("chess.obj"),
+            );
+        }
+
+        if let Ok(appimage) = std::env::var("APPIMAGE")
+            && let Some(appimage_dir) = Path::new(&appimage).parent()
+        {
+            candidates.extend([
+                appimage_dir
+                    .join("..")
+                    .join("share")
+                    .join("rendering")
+                    .join("chess.obj"),
+                appimage_dir
+                    .join("..")
+                    .join("usr")
+                    .join("share")
+                    .join("rendering")
+                    .join("chess.obj"),
+                appimage_dir.join("assets").join("chess.obj"),
+            ]);
+        }
+
+        if let Ok(exe) = std::env::current_exe()
+            && let Some(exe_dir) = exe.parent()
+        {
+            candidates.extend([
+                exe_dir.join("chess.obj"),
+                exe_dir.join("assets").join("chess.obj"),
+                exe_dir.join("..").join("assets").join("chess.obj"),
+                exe_dir
+                    .join("..")
+                    .join("..")
+                    .join("assets")
+                    .join("chess.obj"),
+                exe_dir
+                    .join("..")
+                    .join("share")
+                    .join("rendering")
+                    .join("chess.obj"),
+                exe_dir
+                    .join("..")
+                    .join("..")
+                    .join("share")
+                    .join("rendering")
+                    .join("chess.obj"),
+            ]);
+        }
+
+        candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/chess.obj"));
+        candidates.push(PathBuf::from("assets/chess.obj"));
+        candidates.push(PathBuf::from("src/chess.obj"));
+
+        let mut tried: Vec<String> = Vec::new();
+        for candidate in candidates {
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+            tried.push(candidate.display().to_string());
+        }
+
+        Err(format!(
+            "Could not find chess.obj. Set RENDERING_CHESS_OBJ or place the file in one of these locations: {}",
+            tried.join(", ")
+        ))
     }
 
     pub fn load_chess_scene(&mut self, file_path: &Path) -> Result<(), String> {
@@ -185,6 +273,11 @@ impl Custom3d {
         self.chess_state = Some(chess_state);
 
         Ok(())
+    }
+
+    pub fn import_chess_scene(&mut self) -> Result<(), String> {
+        let path = Self::resolve_chess_scene_path()?;
+        self.load_chess_scene(&path)
     }
 
     pub fn custom_painting(&mut self, ui: &mut egui::Ui) {
