@@ -1,11 +1,12 @@
 use crate::game_logic::chess::{
-    ChessSceneState, Color, GameState, ModelMoveUpdate, PieceType, parse_piece_template_name,
-    square_to_world,
+    ChessSceneState, Color, GameState, ModelMoveUpdate, PieceType, game_outcome_message,
+    parse_piece_template_name, square_to_world,
 };
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::buffers::transform::Transform;
 use crate::render::intersection::screen_to_world_ray;
 use crate::render::model::{Model, NamedModel};
+use crate::render::model::mesh::cube::cube_mesh_builder;
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use eframe::{egui, egui_wgpu};
 use glam::{Vec2, Vec3};
@@ -321,6 +322,14 @@ impl Custom3d {
 
         let renderer = self.get_renderer().read().unwrap();
         for (model_idx, model) in renderer.get_models().iter().enumerate() {
+            if self
+                .chess_state
+                .as_ref()
+                .is_some_and(|state| state.is_highlight_model(model_idx))
+            {
+                continue;
+            }
+
             if let Some(intersection) = model.ray_intersection(camera_pos, ray_direction) {
                 let distance = intersection.distance(camera_pos);
                 if distance < closest_distance && distance.is_finite() {
@@ -347,12 +356,24 @@ impl Custom3d {
             return;
         };
 
+        if chess_state.game_outcome.is_some() {
+            self.set_selected_model(None);
+            if let Ok(mut renderer) = self.get_renderer().write() {
+                clear_move_highlights(&mut chess_state, &mut renderer);
+                renderer.update_selected_model(None);
+            }
+            chess_state.clear_selection();
+            self.chess_state = Some(chess_state);
+            return;
+        }
+
         chess_state.clear_last_error();
 
         if let Some(model_index) = closest_model {
             if chess_state.try_select_piece_model(model_index).is_some() {
                 self.set_selected_model(Some(model_index));
                 if let Ok(mut renderer) = self.get_renderer().write() {
+                    update_move_highlights(&mut chess_state, &mut renderer);
                     renderer.update_selected_model(self.get_selected_model());
                 }
                 self.chess_state = Some(chess_state);
@@ -366,8 +387,24 @@ impl Custom3d {
                             chess_state.apply_mapping_after_move(chess_move.from, chess_move.to);
                         if let Ok(mut renderer) = self.get_renderer().write() {
                             apply_move_to_models(update, &mut renderer);
+                            clear_move_highlights(&mut chess_state, &mut renderer);
                             renderer.update_selected_model(None);
                         }
+
+                        let side_to_move = chess_state.game_state.side_to_move();
+                        if chess_state.game_state.is_checkmate(side_to_move) {
+                            let winner = side_to_move.opposite();
+                            let outcome = crate::game_logic::chess::GameOutcome::Checkmate {
+                                winner,
+                            };
+                            chess_state.game_outcome = Some(outcome);
+                            chess_state.last_error = Some(game_outcome_message(outcome));
+                        } else if chess_state.game_state.is_stalemate(side_to_move) {
+                            let outcome = crate::game_logic::chess::GameOutcome::Stalemate;
+                            chess_state.game_outcome = Some(outcome);
+                            chess_state.last_error = Some(game_outcome_message(outcome));
+                        }
+
                         chess_state.clear_selection();
                         self.set_selected_model(None);
                     }
@@ -376,6 +413,11 @@ impl Custom3d {
                             Some(crate::game_logic::chess::move_error_message(err));
                     }
                 }
+
+                if let Ok(mut renderer) = self.get_renderer().write() {
+                    update_move_highlights(&mut chess_state, &mut renderer);
+                }
+
                 self.chess_state = Some(chess_state);
                 return;
             }
@@ -384,6 +426,7 @@ impl Custom3d {
         chess_state.clear_selection();
         self.set_selected_model(None);
         if let Ok(mut renderer) = self.get_renderer().write() {
+            clear_move_highlights(&mut chess_state, &mut renderer);
             renderer.update_selected_model(None);
         }
         self.chess_state = Some(chess_state);
@@ -431,6 +474,76 @@ fn apply_move_to_models(update: Option<ModelMoveUpdate>, renderer: &mut Renderer
         model
             .get_transform_mut()
             .set_position(update.destination_world_position);
+    }
+}
+
+fn update_move_highlights(chess_state: &mut ChessSceneState, renderer: &mut RendererRenderResources) {
+    let Some(from) = chess_state.selected_square else {
+        clear_move_highlights(chess_state, renderer);
+        return;
+    };
+
+    let legal_targets = chess_state.game_state.legal_moves_from(from);
+    let board_min = chess_state.board_min;
+    let board_max = chess_state.board_max;
+    let square_width = (board_max.x - board_min.x) / 8.0;
+    let square_depth = (board_max.z - board_min.z) / 8.0;
+
+    let highlight_scale = Vec3::new(square_width * 0.65, 0.04, square_depth * 0.65);
+
+    let (device, queue) = (
+        renderer.get_wgpu_render_state().device.clone(),
+        renderer.get_wgpu_render_state().queue.clone(),
+    );
+
+    for (idx, square) in legal_targets.iter().copied().enumerate() {
+        let world = chess_state.square_to_world(square);
+
+        if idx >= chess_state.highlight_model_indices.len() {
+            let mut transform = Transform::default();
+            transform.set_position(Vec3::new(world.x, board_max.y + 0.02, world.z));
+            *transform.get_scale_mut() = highlight_scale;
+
+            let highlight_model = cube_mesh_builder().build(&device).to_model(
+                &device,
+                &queue,
+                (0.15, 0.9, 0.25),
+                transform,
+            );
+
+            let model_index = renderer.get_models().len();
+            renderer.get_models_mut().push(highlight_model);
+            chess_state.highlight_model_indices.push(model_index);
+        } else if let Some(model) = renderer
+            .get_models_mut()
+            .get_mut(chess_state.highlight_model_indices[idx])
+        {
+            model
+                .get_transform_mut()
+                .set_position(Vec3::new(world.x, board_max.y + 0.02, world.z));
+            *model.get_transform_mut().get_scale_mut() = highlight_scale;
+        }
+    }
+
+    for hidden_idx in legal_targets.len()..chess_state.highlight_model_indices.len() {
+        if let Some(model) = renderer
+            .get_models_mut()
+            .get_mut(chess_state.highlight_model_indices[hidden_idx])
+        {
+            model
+                .get_transform_mut()
+                .set_position(Vec3::new(0.0, -1000.0, 0.0));
+        }
+    }
+}
+
+fn clear_move_highlights(chess_state: &mut ChessSceneState, renderer: &mut RendererRenderResources) {
+    for model_index in chess_state.highlight_model_indices.iter().copied() {
+        if let Some(model) = renderer.get_models_mut().get_mut(model_index) {
+            model
+                .get_transform_mut()
+                .set_position(Vec3::new(0.0, -1000.0, 0.0));
+        }
     }
 }
 

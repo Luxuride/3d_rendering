@@ -82,15 +82,24 @@ pub enum MoveError {
     WrongTurn,
     DestinationOccupiedByOwnPiece,
     IllegalPieceMovement,
+    KingWouldBeInCheck,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum GameOutcome {
+    Checkmate { winner: Color },
+    Stalemate,
 }
 
 pub struct ChessSceneState {
     pub game_state: GameState,
+    pub game_outcome: Option<GameOutcome>,
     pub board_model_index: usize,
     pub board_min: Vec3,
     pub board_max: Vec3,
     pub model_by_square: HashMap<Square, usize>,
     pub square_by_model: HashMap<usize, Square>,
+    pub highlight_model_indices: Vec<usize>,
     pub selected_square: Option<Square>,
     pub last_error: Option<String>,
 }
@@ -112,11 +121,13 @@ impl ChessSceneState {
     ) -> Self {
         Self {
             game_state,
+            game_outcome: None,
             board_model_index,
             board_min,
             board_max,
             model_by_square,
             square_by_model,
+            highlight_model_indices: Vec::new(),
             selected_square: None,
             last_error: None,
         }
@@ -128,6 +139,10 @@ impl ChessSceneState {
 
     pub fn clear_selection(&mut self) {
         self.selected_square = None;
+    }
+
+    pub fn is_highlight_model(&self, model_index: usize) -> bool {
+        self.highlight_model_indices.contains(&model_index)
     }
 
     pub fn try_select_piece_model(&mut self, model_index: usize) -> Option<Square> {
@@ -164,7 +179,20 @@ impl ChessSceneState {
         let moving_model_index = self.model_by_square.remove(&from)?;
         self.square_by_model.remove(&moving_model_index);
 
-        let captured_model_index = self.model_by_square.remove(&to);
+        let mut captured_model_index = self.model_by_square.remove(&to);
+
+        if captured_model_index.is_none()
+            && from.file() != to.file()
+            && self
+                .game_state
+                .piece_at(to)
+                .is_some_and(|piece| piece.piece_type == PieceType::Pawn)
+        {
+            if let Some(en_passant_captured_square) = Square::new(to.file(), from.rank()) {
+                captured_model_index = self.model_by_square.remove(&en_passant_captured_square);
+            }
+        }
+
         if let Some(captured) = captured_model_index {
             self.square_by_model.remove(&captured);
         }
@@ -245,11 +273,24 @@ pub fn world_to_square(point: Vec3, board_min: Vec3, board_max: Vec3) -> Option<
 pub fn move_error_message(err: MoveError) -> String {
     match err {
         MoveError::NoPieceAtSource => "No piece selected".to_owned(),
-        MoveError::WrongTurn => "That piece cannot move this turn".to_owned(),
+        MoveError::WrongTurn => "Piece cannot move this turn".to_owned(),
         MoveError::DestinationOccupiedByOwnPiece => {
-            "Destination occupied by your own piece".to_owned()
+            "Destination occupied by own piece".to_owned()
         }
         MoveError::IllegalPieceMovement => "Illegal move for selected piece".to_owned(),
+        MoveError::KingWouldBeInCheck => "King in check".to_owned(),
+    }
+}
+
+pub fn game_outcome_message(outcome: GameOutcome) -> String {
+    match outcome {
+        GameOutcome::Checkmate {
+            winner: Color::White,
+        } => "Checkmate: White wins".to_owned(),
+        GameOutcome::Checkmate {
+            winner: Color::Black,
+        } => "Checkmate: Black wins".to_owned(),
+        GameOutcome::Stalemate => "Stalemate: Draw".to_owned(),
     }
 }
 
@@ -257,6 +298,7 @@ pub fn move_error_message(err: MoveError) -> String {
 pub struct GameState {
     board: [Option<Piece>; 64],
     side_to_move: Color,
+    en_passant_target: Option<Square>,
 }
 
 impl Default for GameState {
@@ -270,6 +312,7 @@ impl GameState {
         let mut game = Self {
             board: [None; 64],
             side_to_move: Color::White,
+            en_passant_target: None,
         };
 
         game.place_back_rank(Color::White, 0);
@@ -344,17 +387,192 @@ impl GameState {
             return Err(MoveError::IllegalPieceMovement);
         }
 
-        self.set_piece(mv.from, None);
-        self.set_piece(mv.to, Some(piece));
+        if self.would_leave_king_in_check(mv, piece.color) {
+            return Err(MoveError::KingWouldBeInCheck);
+        }
+
+        self.apply_move_unchecked(mv, piece);
         self.side_to_move = self.side_to_move.opposite();
         Ok(())
+    }
+
+    pub fn legal_moves_from(&self, from: Square) -> Vec<Square> {
+        let Some(piece) = self.piece_at(from) else {
+            return Vec::new();
+        };
+
+        if piece.color != self.side_to_move {
+            return Vec::new();
+        }
+
+        self.legal_moves_for_piece(from, piece)
+    }
+
+    pub fn is_in_check(&self, color: Color) -> bool {
+        let Some(king_square) = self.find_king_square(color) else {
+            return false;
+        };
+        self.is_square_attacked_by(king_square, color.opposite())
+    }
+
+    pub fn is_checkmate(&self, color: Color) -> bool {
+        if !self.is_in_check(color) {
+            return false;
+        }
+
+        !self.has_any_legal_move(color)
+    }
+
+    pub fn is_stalemate(&self, color: Color) -> bool {
+        if self.is_in_check(color) {
+            return false;
+        }
+
+        !self.has_any_legal_move(color)
     }
 
     fn set_piece(&mut self, square: Square, piece: Option<Piece>) {
         self.board[square.to_index()] = piece;
     }
 
+    fn has_any_legal_move(&self, color: Color) -> bool {
+        for (from, piece) in self.iter_pieces() {
+            if piece.color != color {
+                continue;
+            }
+
+            if self.legal_moves_for_piece(from, piece).is_empty() {
+                continue;
+            }
+
+            return true;
+        }
+
+        false
+    }
+
+    fn legal_moves_for_piece(&self, from: Square, piece: Piece) -> Vec<Square> {
+        let mut legal_moves = Vec::new();
+
+        for to_index in 0..64 {
+            let Some(to) = Square::from_index(to_index) else {
+                continue;
+            };
+
+            if from == to {
+                continue;
+            }
+
+            if self
+                .piece_at(to)
+                .is_some_and(|target| target.color == piece.color)
+            {
+                continue;
+            }
+
+            if !self.is_legal_piece_move(piece, from, to) {
+                continue;
+            }
+
+            if !self.would_leave_king_in_check(Move { from, to }, piece.color) {
+                legal_moves.push(to);
+            }
+        }
+
+        legal_moves
+    }
+
+    fn would_leave_king_in_check(&self, mv: Move, color: Color) -> bool {
+        let mut next = self.clone();
+        let Some(piece) = next.piece_at(mv.from) else {
+            return true;
+        };
+
+        next.apply_move_unchecked(mv, piece);
+        next.is_in_check(color)
+    }
+
+    fn apply_move_unchecked(&mut self, mv: Move, piece: Piece) {
+        let is_en_passant_capture = piece.piece_type == PieceType::Pawn
+            && self.en_passant_target.is_some_and(|target| target == mv.to)
+            && self.piece_at(mv.to).is_none()
+            && mv.from.file() != mv.to.file();
+
+        if is_en_passant_capture {
+            let captured_square =
+                Square::new(mv.to.file(), mv.from.rank()).expect("valid en passant capture square");
+            self.set_piece(captured_square, None);
+        }
+
+        self.set_piece(mv.from, None);
+        self.set_piece(mv.to, Some(piece));
+
+        self.en_passant_target = if piece.piece_type == PieceType::Pawn
+            && (mv.to.rank() as i8 - mv.from.rank() as i8).unsigned_abs() == 2
+        {
+            let mid_rank = ((mv.from.rank() as u16 + mv.to.rank() as u16) / 2) as u8;
+            Square::new(mv.from.file(), mid_rank)
+        } else {
+            None
+        };
+    }
+
+    fn find_king_square(&self, color: Color) -> Option<Square> {
+        self.iter_pieces().find_map(|(square, piece)| {
+            (piece.color == color && piece.piece_type == PieceType::King).then_some(square)
+        })
+    }
+
+    fn is_square_attacked_by(&self, target: Square, attacker_color: Color) -> bool {
+        self.iter_pieces().any(|(from, piece)| {
+            if piece.color != attacker_color {
+                return false;
+            }
+            self.can_piece_attack_square(piece, from, target)
+        })
+    }
+
+    fn can_piece_attack_square(&self, piece: Piece, from: Square, target: Square) -> bool {
+        if from == target {
+            return false;
+        }
+
+        let dx = target.file() as i8 - from.file() as i8;
+        let dy = target.rank() as i8 - from.rank() as i8;
+
+        match piece.piece_type {
+            PieceType::Pawn => {
+                let direction = match piece.color {
+                    Color::White => 1,
+                    Color::Black => -1,
+                };
+                dx.unsigned_abs() == 1 && dy == direction
+            }
+            PieceType::Knight => {
+                let adx = dx.unsigned_abs();
+                let ady = dy.unsigned_abs();
+                (adx == 1 && ady == 2) || (adx == 2 && ady == 1)
+            }
+            PieceType::Bishop => {
+                let adx = dx.unsigned_abs();
+                let ady = dy.unsigned_abs();
+                adx == ady && self.is_path_clear(from, target)
+            }
+            PieceType::Rook => (dx == 0 || dy == 0) && self.is_path_clear(from, target),
+            PieceType::Queen => {
+                let adx = dx.unsigned_abs();
+                let ady = dy.unsigned_abs();
+                ((adx == ady) || dx == 0 || dy == 0) && self.is_path_clear(from, target)
+            }
+            PieceType::King => dx.unsigned_abs() <= 1 && dy.unsigned_abs() <= 1,
+        }
+    }
+
     fn is_legal_piece_move(&self, piece: Piece, from: Square, to: Square) -> bool {
+        if from == to {
+            return false;
+        }
+
         let dx = to.file() as i8 - from.file() as i8;
         let dy = to.rank() as i8 - from.rank() as i8;
 
@@ -403,7 +621,21 @@ impl GameState {
         }
 
         if dx.unsigned_abs() == 1 && dy == direction {
-            return target_piece.is_some_and(|target| target.color != color);
+            if target_piece.is_some_and(|target| target.color != color) {
+                return true;
+            }
+
+            if self.en_passant_target.is_some_and(|target| target == to)
+                && self.piece_at(to).is_none()
+            {
+                let captured_square =
+                    Square::new(to.file(), from.rank()).expect("valid en passant capture square");
+                return self
+                    .piece_at(captured_square)
+                    .is_some_and(|captured| captured.piece_type == PieceType::Pawn && captured.color != color);
+            }
+
+            return false;
         }
 
         false
