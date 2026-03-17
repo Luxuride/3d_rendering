@@ -187,10 +187,9 @@ impl ChessSceneState {
                 .game_state
                 .piece_at(to)
                 .is_some_and(|piece| piece.piece_type == PieceType::Pawn)
+            && let Some(en_passant_captured_square) = Square::new(to.file(), from.rank())
         {
-            if let Some(en_passant_captured_square) = Square::new(to.file(), from.rank()) {
-                captured_model_index = self.model_by_square.remove(&en_passant_captured_square);
-            }
+            captured_model_index = self.model_by_square.remove(&en_passant_captured_square);
         }
 
         if let Some(captured) = captured_model_index {
