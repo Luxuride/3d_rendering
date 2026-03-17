@@ -5,8 +5,8 @@ use crate::game_logic::chess::{
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::buffers::transform::Transform;
 use crate::render::intersection::screen_to_world_ray;
-use crate::render::model::{Model, NamedModel};
 use crate::render::model::mesh::cube::cube_mesh_builder;
+use crate::render::model::{Model, NamedModel};
 use crate::render::renderer::{RendererCallback, RendererRenderResources};
 use eframe::{egui, egui_wgpu};
 use glam::{Vec2, Vec3};
@@ -394,9 +394,8 @@ impl Custom3d {
                         let side_to_move = chess_state.game_state.side_to_move();
                         if chess_state.game_state.is_checkmate(side_to_move) {
                             let winner = side_to_move.opposite();
-                            let outcome = crate::game_logic::chess::GameOutcome::Checkmate {
-                                winner,
-                            };
+                            let outcome =
+                                crate::game_logic::chess::GameOutcome::Checkmate { winner };
                             chess_state.game_outcome = Some(outcome);
                             chess_state.last_error = Some(game_outcome_message(outcome));
                         } else if chess_state.game_state.is_stalemate(side_to_move) {
@@ -477,7 +476,10 @@ fn apply_move_to_models(update: Option<ModelMoveUpdate>, renderer: &mut Renderer
     }
 }
 
-fn update_move_highlights(chess_state: &mut ChessSceneState, renderer: &mut RendererRenderResources) {
+fn update_move_highlights(
+    chess_state: &mut ChessSceneState,
+    renderer: &mut RendererRenderResources,
+) {
     let Some(from) = chess_state.selected_square else {
         clear_move_highlights(chess_state, renderer);
         return;
@@ -537,7 +539,10 @@ fn update_move_highlights(chess_state: &mut ChessSceneState, renderer: &mut Rend
     }
 }
 
-fn clear_move_highlights(chess_state: &mut ChessSceneState, renderer: &mut RendererRenderResources) {
+fn clear_move_highlights(
+    chess_state: &mut ChessSceneState,
+    renderer: &mut RendererRenderResources,
+) {
     for model_index in chess_state.highlight_model_indices.iter().copied() {
         if let Some(model) = renderer.get_models_mut().get_mut(model_index) {
             model

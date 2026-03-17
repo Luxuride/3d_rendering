@@ -103,9 +103,7 @@ impl Custom3d {
                                 GameOutcome::Checkmate {
                                     winner: Color::Black,
                                 } => ui.label("Game over: checkmate (Black wins)"),
-                                GameOutcome::Stalemate => {
-                                    ui.label("Game over: stalemate (draw)")
-                                }
+                                GameOutcome::Stalemate => ui.label("Game over: stalemate (draw)"),
                             };
                         } else {
                             let side_to_move = match chess_state.game_state.side_to_move() {

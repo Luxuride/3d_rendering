@@ -274,9 +274,7 @@ pub fn move_error_message(err: MoveError) -> String {
     match err {
         MoveError::NoPieceAtSource => "No piece selected".to_owned(),
         MoveError::WrongTurn => "Piece cannot move this turn".to_owned(),
-        MoveError::DestinationOccupiedByOwnPiece => {
-            "Destination occupied by own piece".to_owned()
-        }
+        MoveError::DestinationOccupiedByOwnPiece => "Destination occupied by own piece".to_owned(),
         MoveError::IllegalPieceMovement => "Illegal move for selected piece".to_owned(),
         MoveError::KingWouldBeInCheck => "King in check".to_owned(),
     }
@@ -630,9 +628,9 @@ impl GameState {
             {
                 let captured_square =
                     Square::new(to.file(), from.rank()).expect("valid en passant capture square");
-                return self
-                    .piece_at(captured_square)
-                    .is_some_and(|captured| captured.piece_type == PieceType::Pawn && captured.color != color);
+                return self.piece_at(captured_square).is_some_and(|captured| {
+                    captured.piece_type == PieceType::Pawn && captured.color != color
+                });
             }
 
             return false;
