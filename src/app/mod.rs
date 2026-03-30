@@ -2,6 +2,7 @@ use crate::game_logic::chess::{
     ChessSceneState, Color, GameState, ModelMoveUpdate, PieceType, game_outcome_message,
     parse_piece_template_name, square_to_world,
 };
+use crate::render::animation::chaos_gravity::ChaosGravityAnimation;
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::buffers::transform::Transform;
 use crate::render::intersection::screen_to_world_ray;
@@ -27,6 +28,8 @@ pub struct Custom3d {
     show_help: bool,
     prev_frame: Instant,
     chess_state: Option<ChessSceneState>,
+    captured_chaos: Vec<usize>,
+    capture_chaos_seed: u32,
 }
 
 impl Custom3d {
@@ -49,6 +52,8 @@ impl Custom3d {
             show_help: false,
             prev_frame: Instant::now(),
             chess_state: None,
+            captured_chaos: Vec::new(),
+            capture_chaos_seed: 1,
         })
     }
 
@@ -272,6 +277,8 @@ impl Custom3d {
             renderer.update_selected_model(None);
         }
         self.chess_state = Some(chess_state);
+        self.captured_chaos.clear();
+        self.capture_chaos_seed = 1;
 
         Ok(())
     }
@@ -322,6 +329,10 @@ impl Custom3d {
 
         let renderer = self.get_renderer().read().unwrap();
         for (model_idx, model) in renderer.get_models().iter().enumerate() {
+            if self.is_model_in_capture_chaos(model_idx) {
+                continue;
+            }
+
             if self
                 .chess_state
                 .as_ref()
@@ -385,8 +396,9 @@ impl Custom3d {
                     Ok(()) => {
                         let update =
                             chess_state.apply_mapping_after_move(chess_move.from, chess_move.to);
-                        if let Ok(mut renderer) = self.get_renderer().write() {
-                            apply_move_to_models(update, &mut renderer);
+                        let renderer_handle = Arc::clone(self.get_renderer());
+                        if let Ok(mut renderer) = renderer_handle.write() {
+                            self.apply_move_to_models(update, &mut renderer);
                             clear_move_highlights(&mut chess_state, &mut renderer);
                             renderer.update_selected_model(None);
                         }
@@ -430,6 +442,76 @@ impl Custom3d {
         }
         self.chess_state = Some(chess_state);
     }
+
+    fn is_model_in_capture_chaos(&self, model_index: usize) -> bool {
+        self.captured_chaos.contains(&model_index)
+    }
+
+    fn apply_move_to_models(
+        &mut self,
+        update: Option<ModelMoveUpdate>,
+        renderer: &mut RendererRenderResources,
+    ) {
+        let Some(update) = update else {
+            return;
+        };
+
+        if let Some(captured_model_index) = update.captured_model_index {
+            self.spawn_capture_chaos(captured_model_index, renderer);
+        }
+
+        if let Some(model) = renderer.get_models_mut().get_mut(update.moving_model_index) {
+            model
+                .get_transform_mut()
+                .set_position(update.destination_world_position);
+        }
+    }
+
+    fn spawn_capture_chaos(
+        &mut self,
+        captured_model_index: usize,
+        renderer: &mut RendererRenderResources,
+    ) {
+        self.captured_chaos
+            .retain(|idx| *idx != captured_model_index);
+
+        let Some(model) = renderer.get_models_mut().get_mut(captured_model_index) else {
+            return;
+        };
+
+        let seed = self
+            .capture_chaos_seed
+            .wrapping_mul(1_664_525)
+            .wrapping_add((captured_model_index as u32).wrapping_mul(1_013_904_223));
+        self.capture_chaos_seed = self.capture_chaos_seed.wrapping_add(1);
+        let position = model.get_transform().get_position();
+        model.set_animation(Some(Box::new(ChaosGravityAnimation::new(position, seed))));
+        self.captured_chaos.push(captured_model_index);
+    }
+
+    fn update_capture_chaos(&mut self, renderer: &mut RendererRenderResources) {
+        let mut index = 0;
+
+        while index < self.captured_chaos.len() {
+            let model_index = self.captured_chaos[index];
+            let should_despawn = renderer
+                .get_models()
+                .get(model_index)
+                .is_none_or(|model| model.animation_finished());
+
+            if should_despawn {
+                let removed = self.captured_chaos.swap_remove(index);
+                if let Some(model) = renderer.get_models_mut().get_mut(removed) {
+                    model.set_animation(None);
+                    model
+                        .get_transform_mut()
+                        .set_position(Vec3::new(0.0, -1000.0, 0.0));
+                }
+            } else {
+                index += 1;
+            }
+        }
+    }
 }
 
 impl eframe::App for Custom3d {
@@ -438,10 +520,12 @@ impl eframe::App for Custom3d {
         let delta_time: Duration = curr_frame - self.get_prev_frame();
         self.set_prev_frame(curr_frame);
         {
-            let mut renderer = self.get_renderer().write().unwrap();
+            let renderer_handle = Arc::clone(self.get_renderer());
+            let mut renderer = renderer_handle.write().unwrap();
             for model in renderer.get_models_mut().iter_mut() {
                 model.add_animation_time(delta_time);
             }
+            self.update_capture_chaos(&mut renderer);
         }
         ctx.input(|i| {
             self.handle_input(i, &delta_time);
@@ -453,26 +537,6 @@ impl eframe::App for Custom3d {
         self.right_panel(ctx);
         self.center_panel(ctx);
         ctx.request_repaint();
-    }
-}
-
-fn apply_move_to_models(update: Option<ModelMoveUpdate>, renderer: &mut RendererRenderResources) {
-    let Some(update) = update else {
-        return;
-    };
-
-    if let Some(captured_model_index) = update.captured_model_index
-        && let Some(model) = renderer.get_models_mut().get_mut(captured_model_index)
-    {
-        model
-            .get_transform_mut()
-            .set_position(Vec3::new(0.0, -1000.0, 0.0));
-    }
-
-    if let Some(model) = renderer.get_models_mut().get_mut(update.moving_model_index) {
-        model
-            .get_transform_mut()
-            .set_position(update.destination_world_position);
     }
 }
 

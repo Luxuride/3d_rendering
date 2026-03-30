@@ -284,9 +284,19 @@ impl Model {
         &self.transform_bind_group
     }
 
+    pub fn set_animation(&mut self, animation: Option<Box<dyn Animation + Send + Sync>>) {
+        self.animation = animation;
+    }
+
+    pub fn animation_finished(&self) -> bool {
+        self.animation
+            .as_ref()
+            .is_some_and(|animation| animation.is_finished())
+    }
+
     pub fn add_animation_time(&mut self, delta_time: Duration) {
         if let Some(animation) = self.animation.as_mut() {
-            animation.update_time(delta_time);
+            animation.progress(delta_time);
         }
     }
 }

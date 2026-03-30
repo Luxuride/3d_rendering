@@ -1,9 +1,13 @@
-pub mod simple_animation;
+pub mod chaos_gravity;
 
-use crate::render::buffers::transform::Transform;
 use std::time::Duration;
 
+use crate::render::buffers::transform::Transform;
+
 pub trait Animation {
-    fn update_time(&mut self, delta_time: Duration);
+    fn progress(&mut self, delta_time: Duration);
     fn get_animation_transform(&self, transform: &Transform) -> Transform;
+    fn is_finished(&self) -> bool {
+        false
+    }
 }
