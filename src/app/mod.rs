@@ -3,6 +3,7 @@ use crate::game_logic::chess::{
     parse_piece_template_name, square_to_world,
 };
 use crate::render::animation::chaos_gravity::ChaosGravityAnimation;
+use crate::render::animation::move_jump::MoveJumpAnimation;
 use crate::render::buffers::camera::{Camera, CameraBuilder};
 use crate::render::buffers::transform::Transform;
 use crate::render::intersection::screen_to_world_ray;
@@ -378,6 +379,11 @@ impl Custom3d {
             return;
         }
 
+        if self.is_move_animation_in_progress() {
+            self.chess_state = Some(chess_state);
+            return;
+        }
+
         chess_state.clear_last_error();
 
         if let Some(model_index) = closest_model {
@@ -447,6 +453,17 @@ impl Custom3d {
         self.captured_chaos.contains(&model_index)
     }
 
+    fn is_move_animation_in_progress(&self) -> bool {
+        let Ok(renderer) = self.get_renderer().read() else {
+            return false;
+        };
+
+        renderer
+            .get_models()
+            .iter()
+            .any(|model| model.has_active_blocking_animation())
+    }
+
     fn apply_move_to_models(
         &mut self,
         update: Option<ModelMoveUpdate>,
@@ -460,10 +477,23 @@ impl Custom3d {
             self.spawn_capture_chaos(captured_model_index, renderer);
         }
 
-        if let Some(model) = renderer.get_models_mut().get_mut(update.moving_model_index) {
-            model
-                .get_transform_mut()
-                .set_position(update.destination_world_position);
+        for moved in update.moved_models {
+            if let Some(model) = renderer.get_models_mut().get_mut(moved.model_index) {
+                let base_transform = model.get_transform();
+                let start_position = base_transform.get_position();
+                model
+                    .get_transform_mut()
+                    .set_position(moved.destination_world_position);
+
+                if start_position.distance(moved.destination_world_position) > 0.001 {
+                    model.set_animation(Some(Box::new(MoveJumpAnimation::new(
+                        base_transform,
+                        moved.destination_world_position,
+                    ))));
+                } else {
+                    model.set_animation(None);
+                }
+            }
         }
     }
 
@@ -484,8 +514,11 @@ impl Custom3d {
             .wrapping_mul(1_664_525)
             .wrapping_add((captured_model_index as u32).wrapping_mul(1_013_904_223));
         self.capture_chaos_seed = self.capture_chaos_seed.wrapping_add(1);
-        let position = model.get_transform().get_position();
-        model.set_animation(Some(Box::new(ChaosGravityAnimation::new(position, seed))));
+        let base_transform = model.get_transform();
+        model.set_animation(Some(Box::new(ChaosGravityAnimation::new(
+            base_transform,
+            seed,
+        ))));
         self.captured_chaos.push(captured_model_index);
     }
 

@@ -1,301 +1,19 @@
-use glam::Vec3;
-use std::collections::HashMap;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Color {
-    White,
-    Black,
-}
-
-impl Color {
-    pub fn opposite(self) -> Self {
-        match self {
-            Self::White => Self::Black,
-            Self::Black => Self::White,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PieceType {
-    Pawn,
-    Rook,
-    Knight,
-    Bishop,
-    Queen,
-    King,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Piece {
-    pub piece_type: PieceType,
-    pub color: Color,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Square {
-    file: u8,
-    rank: u8,
-}
-
-impl Square {
-    pub fn new(file: u8, rank: u8) -> Option<Self> {
-        if file < 8 && rank < 8 {
-            Some(Self { file, rank })
-        } else {
-            None
-        }
-    }
-
-    pub fn file(self) -> u8 {
-        self.file
-    }
-
-    pub fn rank(self) -> u8 {
-        self.rank
-    }
-
-    pub fn from_index(index: usize) -> Option<Self> {
-        if index < 64 {
-            let file = (index % 8) as u8;
-            let rank = (index / 8) as u8;
-            Self::new(file, rank)
-        } else {
-            None
-        }
-    }
-
-    pub fn to_index(self) -> usize {
-        self.rank as usize * 8 + self.file as usize
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Move {
-    pub from: Square,
-    pub to: Square,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum MoveError {
-    NoPieceAtSource,
-    WrongTurn,
-    DestinationOccupiedByOwnPiece,
-    IllegalPieceMovement,
-    KingWouldBeInCheck,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum GameOutcome {
-    Checkmate { winner: Color },
-    Stalemate,
-}
-
-pub struct ChessSceneState {
-    pub game_state: GameState,
-    pub game_outcome: Option<GameOutcome>,
-    pub board_model_index: usize,
-    pub board_min: Vec3,
-    pub board_max: Vec3,
-    pub model_by_square: HashMap<Square, usize>,
-    pub square_by_model: HashMap<usize, Square>,
-    pub highlight_model_indices: Vec<usize>,
-    pub selected_square: Option<Square>,
-    pub last_error: Option<String>,
-}
-
-pub struct ModelMoveUpdate {
-    pub moving_model_index: usize,
-    pub captured_model_index: Option<usize>,
-    pub destination_world_position: Vec3,
-}
-
-impl ChessSceneState {
-    pub fn new(
-        game_state: GameState,
-        board_model_index: usize,
-        board_min: Vec3,
-        board_max: Vec3,
-        model_by_square: HashMap<Square, usize>,
-        square_by_model: HashMap<usize, Square>,
-    ) -> Self {
-        Self {
-            game_state,
-            game_outcome: None,
-            board_model_index,
-            board_min,
-            board_max,
-            model_by_square,
-            square_by_model,
-            highlight_model_indices: Vec::new(),
-            selected_square: None,
-            last_error: None,
-        }
-    }
-
-    pub fn clear_last_error(&mut self) {
-        self.last_error = None;
-    }
-
-    pub fn clear_selection(&mut self) {
-        self.selected_square = None;
-    }
-
-    pub fn is_highlight_model(&self, model_index: usize) -> bool {
-        self.highlight_model_indices.contains(&model_index)
-    }
-
-    pub fn try_select_piece_model(&mut self, model_index: usize) -> Option<Square> {
-        let square = self.square_by_model.get(&model_index).copied()?;
-        let piece = self.game_state.piece_at(square)?;
-        if piece.color == self.game_state.side_to_move() {
-            self.selected_square = Some(square);
-            Some(square)
-        } else {
-            None
-        }
-    }
-
-    pub fn try_build_click_move(
-        &self,
-        model_index: usize,
-        hit_point: Option<Vec3>,
-    ) -> Option<Move> {
-        if model_index != self.board_model_index {
-            return None;
-        }
-
-        let from = self.selected_square?;
-        let point = hit_point?;
-        let to = self.world_to_square(point)?;
-        Some(Move { from, to })
-    }
-
-    pub fn apply_mapping_after_move(
-        &mut self,
-        from: Square,
-        to: Square,
-    ) -> Option<ModelMoveUpdate> {
-        let moving_model_index = self.model_by_square.remove(&from)?;
-        self.square_by_model.remove(&moving_model_index);
-
-        let mut captured_model_index = self.model_by_square.remove(&to);
-
-        if captured_model_index.is_none()
-            && from.file() != to.file()
-            && self
-                .game_state
-                .piece_at(to)
-                .is_some_and(|piece| piece.piece_type == PieceType::Pawn)
-            && let Some(en_passant_captured_square) = Square::new(to.file(), from.rank())
-        {
-            captured_model_index = self.model_by_square.remove(&en_passant_captured_square);
-        }
-
-        if let Some(captured) = captured_model_index {
-            self.square_by_model.remove(&captured);
-        }
-
-        self.model_by_square.insert(to, moving_model_index);
-        self.square_by_model.insert(moving_model_index, to);
-
-        Some(ModelMoveUpdate {
-            moving_model_index,
-            captured_model_index,
-            destination_world_position: self.square_to_world(to),
-        })
-    }
-
-    pub fn square_to_world(&self, square: Square) -> Vec3 {
-        square_to_world(square, self.board_min, self.board_max)
-    }
-
-    pub fn world_to_square(&self, point: Vec3) -> Option<Square> {
-        world_to_square(point, self.board_min, self.board_max)
-    }
-}
-
-pub fn parse_piece_template_name(name: &str) -> Option<(PieceType, Color)> {
-    let normalized = name.trim().to_ascii_lowercase();
-    let (piece_name, color_suffix) = normalized.split_once('.')?;
-
-    let piece_type = match piece_name {
-        "pawn" => PieceType::Pawn,
-        "rook" => PieceType::Rook,
-        "knight" => PieceType::Knight,
-        "bishop" => PieceType::Bishop,
-        "queen" | "queeen" => PieceType::Queen,
-        "king" => PieceType::King,
-        _ => return None,
-    };
-
-    let color = match color_suffix {
-        "000" => Color::Black,
-        "001" => Color::White,
-        _ => return None,
-    };
-
-    Some((piece_type, color))
-}
-
-pub fn square_to_world(square: Square, board_min: Vec3, board_max: Vec3) -> Vec3 {
-    let square_width = (board_max.x - board_min.x) / 8.0;
-    let square_depth = (board_max.z - board_min.z) / 8.0;
-    let x = board_min.x + (square.file() as f32 + 0.5) * square_width;
-    let z = board_min.z + (square.rank() as f32 + 0.5) * square_depth;
-    Vec3::new(x, board_max.y + 0.01, z)
-}
-
-pub fn world_to_square(point: Vec3, board_min: Vec3, board_max: Vec3) -> Option<Square> {
-    if point.x < board_min.x
-        || point.x > board_max.x
-        || point.z < board_min.z
-        || point.z > board_max.z
-    {
-        return None;
-    }
-
-    let width = board_max.x - board_min.x;
-    let depth = board_max.z - board_min.z;
-    if width <= 0.0 || depth <= 0.0 {
-        return None;
-    }
-
-    let rel_x = ((point.x - board_min.x) / width).clamp(0.0, 0.999_999);
-    let rel_z = ((point.z - board_min.z) / depth).clamp(0.0, 0.999_999);
-
-    let file = (rel_x * 8.0).floor() as u8;
-    let rank = (rel_z * 8.0).floor() as u8;
-    Square::new(file, rank)
-}
-
-pub fn move_error_message(err: MoveError) -> String {
-    match err {
-        MoveError::NoPieceAtSource => "No piece selected".to_owned(),
-        MoveError::WrongTurn => "Piece cannot move this turn".to_owned(),
-        MoveError::DestinationOccupiedByOwnPiece => "Destination occupied by own piece".to_owned(),
-        MoveError::IllegalPieceMovement => "Illegal move for selected piece".to_owned(),
-        MoveError::KingWouldBeInCheck => "King in check".to_owned(),
-    }
-}
-
-pub fn game_outcome_message(outcome: GameOutcome) -> String {
-    match outcome {
-        GameOutcome::Checkmate {
-            winner: Color::White,
-        } => "Checkmate: White wins".to_owned(),
-        GameOutcome::Checkmate {
-            winner: Color::Black,
-        } => "Checkmate: Black wins".to_owned(),
-        GameOutcome::Stalemate => "Stalemate: Draw".to_owned(),
-    }
-}
+use crate::game_logic::chess::{Color, Move, MoveError, Piece, PieceType, Square};
 
 #[derive(Clone)]
 pub struct GameState {
     board: [Option<Piece>; 64],
     side_to_move: Color,
     en_passant_target: Option<Square>,
+    castling_rights: CastlingRights,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct CastlingRights {
+    white_kingside: bool,
+    white_queenside: bool,
+    black_kingside: bool,
+    black_queenside: bool,
 }
 
 impl Default for GameState {
@@ -310,6 +28,12 @@ impl GameState {
             board: [None; 64],
             side_to_move: Color::White,
             en_passant_target: None,
+            castling_rights: CastlingRights {
+                white_kingside: true,
+                white_queenside: true,
+                black_kingside: true,
+                black_queenside: true,
+            },
         };
 
         game.place_back_rank(Color::White, 0);
@@ -490,10 +214,30 @@ impl GameState {
     }
 
     fn apply_move_unchecked(&mut self, mv: Move, piece: Piece) {
+        let captured_on_destination = self.piece_at(mv.to);
+
+        if piece.piece_type == PieceType::King {
+            self.clear_castling_rights(piece.color);
+        }
+
+        if piece.piece_type == PieceType::Rook {
+            self.clear_rook_castling_right(piece.color, mv.from);
+        }
+
+        if let Some(captured_piece) = captured_on_destination
+            && captured_piece.piece_type == PieceType::Rook
+        {
+            self.clear_rook_castling_right(captured_piece.color, mv.to);
+        }
+
         let is_en_passant_capture = piece.piece_type == PieceType::Pawn
             && self.en_passant_target.is_some_and(|target| target == mv.to)
             && self.piece_at(mv.to).is_none()
             && mv.from.file() != mv.to.file();
+
+        let is_castling_move = piece.piece_type == PieceType::King
+            && mv.from.rank() == mv.to.rank()
+            && (mv.to.file() as i8 - mv.from.file() as i8).unsigned_abs() == 2;
 
         if is_en_passant_capture {
             let captured_square =
@@ -504,6 +248,25 @@ impl GameState {
         self.set_piece(mv.from, None);
         self.set_piece(mv.to, Some(piece));
 
+        if is_castling_move {
+            let rank = mv.from.rank();
+            let (rook_from, rook_to) = if mv.to.file() > mv.from.file() {
+                (
+                    Square::new(7, rank).expect("valid castling rook source"),
+                    Square::new(5, rank).expect("valid castling rook destination"),
+                )
+            } else {
+                (
+                    Square::new(0, rank).expect("valid castling rook source"),
+                    Square::new(3, rank).expect("valid castling rook destination"),
+                )
+            };
+
+            let rook = self.piece_at(rook_from);
+            self.set_piece(rook_from, None);
+            self.set_piece(rook_to, rook);
+        }
+
         self.en_passant_target = if piece.piece_type == PieceType::Pawn
             && (mv.to.rank() as i8 - mv.from.rank() as i8).unsigned_abs() == 2
         {
@@ -512,6 +275,42 @@ impl GameState {
         } else {
             None
         };
+    }
+
+    fn clear_castling_rights(&mut self, color: Color) {
+        match color {
+            Color::White => {
+                self.castling_rights.white_kingside = false;
+                self.castling_rights.white_queenside = false;
+            }
+            Color::Black => {
+                self.castling_rights.black_kingside = false;
+                self.castling_rights.black_queenside = false;
+            }
+        }
+    }
+
+    fn clear_rook_castling_right(&mut self, color: Color, square: Square) {
+        let home_rank = match color {
+            Color::White => 0,
+            Color::Black => 7,
+        };
+
+        if square.rank() != home_rank {
+            return;
+        }
+
+        match square.file() {
+            0 => match color {
+                Color::White => self.castling_rights.white_queenside = false,
+                Color::Black => self.castling_rights.black_queenside = false,
+            },
+            7 => match color {
+                Color::White => self.castling_rights.white_kingside = false,
+                Color::Black => self.castling_rights.black_kingside = false,
+            },
+            _ => {}
+        }
     }
 
     fn find_king_square(&self, color: Color) -> Option<Square> {
@@ -591,7 +390,87 @@ impl GameState {
                 let ady = dy.unsigned_abs();
                 ((adx == ady) || dx == 0 || dy == 0) && self.is_path_clear(from, to)
             }
-            PieceType::King => dx.unsigned_abs() <= 1 && dy.unsigned_abs() <= 1,
+            PieceType::King => {
+                if dx.unsigned_abs() <= 1 && dy.unsigned_abs() <= 1 {
+                    return true;
+                }
+
+                dy == 0
+                    && dx.unsigned_abs() == 2
+                    && self.is_legal_castling_move(piece.color, from, to)
+            }
+        }
+    }
+
+    fn is_legal_castling_move(&self, color: Color, from: Square, to: Square) -> bool {
+        let home_rank = match color {
+            Color::White => 0,
+            Color::Black => 7,
+        };
+        let king_home = Square::new(4, home_rank).expect("valid king home square");
+        if from != king_home || to.rank() != home_rank {
+            return false;
+        }
+
+        let kingside_target = Square::new(6, home_rank).expect("valid kingside castling target");
+        let queenside_target = Square::new(2, home_rank).expect("valid queenside castling target");
+
+        let (is_kingside, rook_from, king_path_squares) = if to == kingside_target {
+            (
+                true,
+                Square::new(7, home_rank).expect("valid kingside rook square"),
+                [
+                    Square::new(5, home_rank).expect("valid kingside transit square"),
+                    Square::new(6, home_rank).expect("valid kingside target square"),
+                ],
+            )
+        } else if to == queenside_target {
+            (
+                false,
+                Square::new(0, home_rank).expect("valid queenside rook square"),
+                [
+                    Square::new(3, home_rank).expect("valid queenside transit square"),
+                    Square::new(2, home_rank).expect("valid queenside target square"),
+                ],
+            )
+        } else {
+            return false;
+        };
+
+        if !self.has_castling_right(color, is_kingside) {
+            return false;
+        }
+
+        if self.piece_at(rook_from)
+            != Some(Piece {
+                piece_type: PieceType::Rook,
+                color,
+            })
+        {
+            return false;
+        }
+
+        if !self.is_path_clear(from, rook_from) {
+            return false;
+        }
+
+        if self.is_in_check(color) {
+            return false;
+        }
+
+        let attacker = color.opposite();
+        !king_path_squares
+            .iter()
+            .copied()
+            .any(|square| self.is_square_attacked_by(square, attacker))
+    }
+
+    fn has_castling_right(&self, color: Color, kingside: bool) -> bool {
+        match (color, kingside) {
+            (Color::White, true) => self.castling_rights.white_kingside,
+            (Color::White, false) => self.castling_rights.white_queenside,
+            (Color::Black, true) => self.castling_rights.black_kingside,
+            (Color::Black, false) => self.castling_rights.black_queenside,
         }
     }
 

@@ -16,14 +16,16 @@ const CAPTURE_CHAOS_MAX_HORIZONTAL_DISTANCE: f32 = 120.0;
 
 #[derive(Clone, Debug)]
 pub struct ChaosGravityAnimation {
+    base_transform: Transform,
     initial_position: Vec3,
     velocity: Vec3,
     angular_velocity: Vec3,
-    elapsed_seconds: f32,
+    progress_ratio: f32,
 }
 
 impl ChaosGravityAnimation {
-    pub fn new(initial_position: Vec3, seed: u32) -> Self {
+    pub fn new(base_transform: Transform, seed: u32) -> Self {
+        let initial_position = base_transform.get_position();
         let heading = random_range(seed.wrapping_add(11), 0.0, std::f32::consts::TAU);
         let horizontal_speed = random_range(
             seed.wrapping_add(23),
@@ -61,15 +63,20 @@ impl ChaosGravityAnimation {
         );
 
         Self {
+            base_transform,
             initial_position,
             velocity,
             angular_velocity,
-            elapsed_seconds: 0.0,
+            progress_ratio: 0.0,
         }
     }
 
+    fn elapsed_seconds(&self) -> f32 {
+        self.progress_ratio * CAPTURE_CHAOS_LIFETIME_SECONDS
+    }
+
     fn current_displacement(&self) -> Vec3 {
-        let t = self.elapsed_seconds;
+        let t = self.elapsed_seconds();
         Vec3::new(
             self.velocity.x * t,
             self.velocity.y * t + 0.5 * CAPTURE_CHAOS_GRAVITY * t * t,
@@ -80,25 +87,27 @@ impl ChaosGravityAnimation {
 
 impl Animation for ChaosGravityAnimation {
     fn progress(&mut self, delta_time: Duration) {
-        self.elapsed_seconds += delta_time.as_secs_f32().min(0.05);
+        let delta_progress = delta_time.as_secs_f32().min(0.05) / CAPTURE_CHAOS_LIFETIME_SECONDS;
+        self.progress_ratio = (self.progress_ratio + delta_progress).clamp(0.0, 1.0);
     }
 
-    fn get_animation_transform(&self, transform: &Transform) -> Transform {
-        let mut transform = *transform;
+    fn get_animation_transform(&self) -> Transform {
+        let mut transform = self.base_transform;
         let displacement = self.current_displacement();
         transform.set_position(self.initial_position + displacement);
+        let elapsed_seconds = self.elapsed_seconds();
 
         let rotation = Quat::from_euler(
             EulerRot::XYZ,
-            self.angular_velocity.x * self.elapsed_seconds,
-            self.angular_velocity.y * self.elapsed_seconds,
-            self.angular_velocity.z * self.elapsed_seconds,
+            self.angular_velocity.x * elapsed_seconds,
+            self.angular_velocity.y * elapsed_seconds,
+            self.angular_velocity.z * elapsed_seconds,
         );
         transform.rotation(rotation)
     }
 
     fn is_finished(&self) -> bool {
-        if self.elapsed_seconds >= CAPTURE_CHAOS_LIFETIME_SECONDS {
+        if self.progress_ratio >= 1.0 {
             return true;
         }
 

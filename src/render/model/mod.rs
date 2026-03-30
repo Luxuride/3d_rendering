@@ -267,7 +267,7 @@ impl Model {
 
     pub fn get_transform(&self) -> Transform {
         match self.animation.as_ref() {
-            Some(animation) => animation.get_animation_transform(&self.transform),
+            Some(animation) => animation.get_animation_transform(),
             None => self.transform,
         }
     }
@@ -292,6 +292,12 @@ impl Model {
         self.animation
             .as_ref()
             .is_some_and(|animation| animation.is_finished())
+    }
+
+    pub fn has_active_blocking_animation(&self) -> bool {
+        self.animation
+            .as_ref()
+            .is_some_and(|animation| animation.blocks_input() && !animation.is_finished())
     }
 
     pub fn add_animation_time(&mut self, delta_time: Duration) {
