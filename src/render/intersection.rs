@@ -1,4 +1,4 @@
-use crate::render::buffers::camera::Camera;
+use crate::render::buffers::camera::{Camera, CameraProjection};
 use crate::render::buffers::vertex::vertex_raw::VertexRaw;
 use glam::{Vec2, Vec3};
 
@@ -92,22 +92,43 @@ pub fn moller_trumbore_intersection(
     }
 }
 
-pub fn screen_to_world_ray(screen_pos: Vec2, viewport_size: Vec2, camera: &Camera) -> Vec3 {
+pub fn screen_to_world_ray(screen_pos: Vec2, viewport_size: Vec2, camera: &Camera) -> (Vec3, Vec3) {
     let ndc_x = (2.0 * screen_pos.x) / viewport_size.x - 1.0;
     let ndc_y = 1.0 - (2.0 * screen_pos.y) / viewport_size.y;
 
-    let ray_clip = Vec3::new(ndc_x, ndc_y, -1.0);
+    match camera.projection_mode() {
+        CameraProjection::Perspective => {
+            let ray_clip = Vec3::new(ndc_x, ndc_y, -1.0);
 
-    let ray_eye = camera.build_projection_matrix().inverse()
-        * Vec3::new(ray_clip.x, ray_clip.y, -1.0).extend(0.0);
-    let ray_eye = Vec3::new(ray_eye.x, ray_eye.y, -1.0);
+            let ray_eye = camera.build_projection_matrix().inverse()
+                * Vec3::new(ray_clip.x, ray_clip.y, -1.0).extend(0.0);
+            let ray_eye = Vec3::new(ray_eye.x, ray_eye.y, -1.0);
 
-    let ray_world = camera.build_view_matrix().inverse() * ray_eye.extend(0.0);
-    let ray_world = Vec3::new(ray_world.x, ray_world.y, ray_world.z).normalize();
+            let ray_world = camera.build_view_matrix().inverse() * ray_eye.extend(0.0);
+            let ray_world = Vec3::new(ray_world.x, ray_world.y, ray_world.z).normalize();
 
-    if !ray_world.is_finite() {
-        return Vec3::new(0.0, 0.0, 1.0);
+            if !ray_world.is_finite() {
+                return (camera.get_position(), Vec3::new(0.0, 0.0, 1.0));
+            }
+
+            (camera.get_position(), ray_world)
+        }
+        CameraProjection::Orthographic => {
+            let half_height = camera.ortho_half_height().max(0.01);
+            let half_width = half_height * (viewport_size.x / viewport_size.y).max(0.01);
+
+            let right = camera.get_right_vector();
+            let up = camera.get_up_vector();
+            let forward = camera.get_forward_vector();
+
+            let origin = camera.get_position() + right * (ndc_x * half_width) + up * (ndc_y * half_height);
+            let direction = if forward.is_finite() {
+                forward
+            } else {
+                Vec3::new(0.0, -1.0, 0.0)
+            };
+
+            (origin, direction.normalize())
+        }
     }
-
-    ray_world
 }

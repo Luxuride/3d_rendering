@@ -4,6 +4,12 @@ use std::time::Duration;
 
 pub mod camera_raw;
 
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum CameraProjection {
+    Perspective,
+    Orthographic,
+}
+
 pub struct CameraBuilder {
     position: Vec3,
     yaw: f32,
@@ -14,6 +20,8 @@ pub struct CameraBuilder {
     aspect_ratio: f32,
     sensitivity: f32,
     move_speed: f32,
+    projection_mode: CameraProjection,
+    ortho_half_height: f32,
 }
 
 impl Default for CameraBuilder {
@@ -28,6 +36,8 @@ impl Default for CameraBuilder {
             aspect_ratio: 1.0,
             sensitivity: 0.1,
             move_speed: 1.0,
+            projection_mode: CameraProjection::Perspective,
+            ortho_half_height: 5.0,
         }
     }
 }
@@ -79,6 +89,16 @@ impl CameraBuilder {
         self
     }
     #[allow(dead_code)]
+    pub fn projection_mode(mut self, projection_mode: CameraProjection) -> Self {
+        self.projection_mode = projection_mode;
+        self
+    }
+    #[allow(dead_code)]
+    pub fn ortho_half_height(mut self, ortho_half_height: f32) -> Self {
+        self.ortho_half_height = ortho_half_height.max(0.01);
+        self
+    }
+    #[allow(dead_code)]
     pub fn build(self) -> Camera {
         Camera {
             position: self.position,
@@ -90,6 +110,8 @@ impl CameraBuilder {
             aspect_ratio: self.aspect_ratio,
             sensitivity: self.sensitivity,
             move_speed: self.move_speed,
+            projection_mode: self.projection_mode,
+            ortho_half_height: self.ortho_half_height,
         }
     }
 }
@@ -104,6 +126,8 @@ pub struct Camera {
     aspect_ratio: f32,
     sensitivity: f32,
     move_speed: f32,
+    projection_mode: CameraProjection,
+    ortho_half_height: f32,
 }
 
 impl Camera {
@@ -116,6 +140,41 @@ impl Camera {
         self.yaw += mouse_delta_x * self.sensitivity;
         self.pitch -= mouse_delta_y * self.sensitivity;
         self.pitch = self.pitch.clamp(-89.0, 89.0);
+    }
+
+    pub fn process_mouse_pan(
+        &mut self,
+        mouse_delta_x: f32,
+        mouse_delta_y: f32,
+        viewport_width: f32,
+        viewport_height: f32,
+    ) {
+        let width = viewport_width.max(1.0);
+        let height = viewport_height.max(1.0);
+
+        let half_height = self.ortho_half_height.max(0.01);
+        let half_width = half_height * self.aspect_ratio.max(0.01);
+
+        let world_per_pixel_x = (2.0 * half_width) / width;
+        let world_per_pixel_y = (2.0 * half_height) / height;
+
+        let right = self.get_right_vector();
+        let up = self.get_up_vector();
+
+        let mut right_flat = Vec3::new(right.x, 0.0, right.z);
+        if right_flat.length_squared() < f32::EPSILON {
+            right_flat = Vec3::X;
+        }
+        right_flat = right_flat.normalize();
+
+        let mut up_flat = Vec3::new(up.x, 0.0, up.z);
+        if up_flat.length_squared() < f32::EPSILON {
+            up_flat = Vec3::Z;
+        }
+        up_flat = up_flat.normalize();
+
+        self.position += -right_flat * (mouse_delta_x * world_per_pixel_x)
+            + up_flat * (mouse_delta_y * world_per_pixel_y);
     }
 
     // Processes keyboard input for camera translation (position).
@@ -141,7 +200,7 @@ impl Camera {
     }
 
     // Get the forward vector of the camera (orientation).
-    fn get_forward_vector(&self) -> Vec3 {
+    pub fn get_forward_vector(&self) -> Vec3 {
         let yaw_rad = self.yaw.to_radians();
         let pitch_rad = self.pitch.to_radians();
 
@@ -154,15 +213,22 @@ impl Camera {
     }
 
     // Get the right vector of the camera (orientation).
-    fn get_right_vector(&self) -> Vec3 {
-        self.get_forward_vector().cross(Vec3::Y).normalize()
+    pub fn get_right_vector(&self) -> Vec3 {
+        let forward = self.get_forward_vector();
+        let mut right = forward.cross(Vec3::Y);
+        if right.length_squared() < 1e-6 {
+            right = Vec3::X;
+        }
+        right.normalize()
     }
 
     // Get the up vector of the camera (orientation).
-    fn get_up_vector(&self) -> Vec3 {
-        self.get_right_vector()
-            .cross(self.get_forward_vector())
-            .normalize()
+    pub fn get_up_vector(&self) -> Vec3 {
+        let mut up = self.get_right_vector().cross(self.get_forward_vector());
+        if up.length_squared() < 1e-6 {
+            up = Vec3::Z;
+        }
+        up.normalize()
     }
 
     // Build the view matrix (transforms world coordinates to camera coordinates).
@@ -174,12 +240,26 @@ impl Camera {
 
     // Build the projection matrix (transforms camera coordinates to clip space).
     pub fn build_projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(
-            self.fov_y.to_radians(),
-            self.aspect_ratio,
-            self.z_near,
-            self.z_far,
-        )
+        match self.projection_mode {
+            CameraProjection::Perspective => Mat4::perspective_rh(
+                self.fov_y.to_radians(),
+                self.aspect_ratio,
+                self.z_near,
+                self.z_far,
+            ),
+            CameraProjection::Orthographic => {
+                let half_height = self.ortho_half_height.max(0.01);
+                let half_width = half_height * self.aspect_ratio.max(0.01);
+                Mat4::orthographic_rh(
+                    -half_width,
+                    half_width,
+                    -half_height,
+                    half_height,
+                    self.z_near,
+                    self.z_far,
+                )
+            }
+        }
     }
 
     // Build the combined view-projection matrix.
@@ -199,6 +279,36 @@ impl Camera {
     }
     pub fn get_mov_speed_raw(&mut self) -> &mut f32 {
         &mut self.move_speed
+    }
+
+    pub fn projection_mode(&self) -> CameraProjection {
+        self.projection_mode
+    }
+
+    pub fn projection_mode_mut(&mut self) -> &mut CameraProjection {
+        &mut self.projection_mode
+    }
+
+    pub fn ortho_half_height(&self) -> f32 {
+        self.ortho_half_height
+    }
+
+    pub fn frame_board_top_down_orthographic(
+        &mut self,
+        board_min: Vec3,
+        board_max: Vec3,
+        fit_margin: f32,
+    ) {
+        let center = (board_min + board_max) * 0.5;
+        let board_width = (board_max.x - board_min.x).abs();
+        let board_depth = (board_max.z - board_min.z).abs();
+        let max_span = board_width.max(board_depth).max(1.0);
+
+        self.position = Vec3::new(center.x, board_max.y + max_span * 1.25, center.z);
+        self.yaw = 90.0;
+        self.pitch = -89.0;
+        self.ortho_half_height = (max_span * 0.5 * fit_margin.max(1.0)).max(0.5);
+        self.projection_mode = CameraProjection::Orthographic;
     }
 }
 

@@ -4,7 +4,7 @@ use crate::game_logic::chess::{
 };
 use crate::render::animation::chaos_gravity::ChaosGravityAnimation;
 use crate::render::animation::move_jump::MoveJumpAnimation;
-use crate::render::buffers::camera::{Camera, CameraBuilder};
+use crate::render::buffers::camera::{Camera, CameraBuilder, CameraProjection};
 use crate::render::buffers::transform::Transform;
 use crate::render::intersection::screen_to_world_ray;
 use crate::render::model::mesh::cube::cube_mesh_builder;
@@ -273,6 +273,9 @@ impl Custom3d {
             )
         };
 
+        self.camera
+            .frame_board_top_down_orthographic(chess_state.board_min, chess_state.board_max, 1.15);
+
         self.set_selected_model(None);
         if let Ok(mut renderer) = self.get_renderer().write() {
             renderer.update_selected_model(None);
@@ -296,8 +299,17 @@ impl Custom3d {
         );
         self.get_camera_mut()
             .update_aspect_ratio(rect.width() / rect.height());
-        self.get_camera_mut()
-            .process_mouse_movement(response.drag_motion().x, response.drag_motion().y);
+        if self.get_camera().projection_mode() == CameraProjection::Orthographic {
+            self.get_camera_mut().process_mouse_pan(
+                response.drag_motion().x,
+                response.drag_motion().y,
+                rect.width(),
+                rect.height(),
+            );
+        } else {
+            self.get_camera_mut()
+                .process_mouse_movement(response.drag_motion().x, response.drag_motion().y);
+        }
 
         if response.clicked() {
             self.handle_model_selection(rect, response.hover_pos());
@@ -321,8 +333,8 @@ impl Custom3d {
             return;
         }
 
-        let camera_pos = self.get_camera().get_position();
-        let ray_direction = screen_to_world_ray(screen_pos, viewport_size, self.get_camera());
+        let (ray_origin, ray_direction) =
+            screen_to_world_ray(screen_pos, viewport_size, self.get_camera());
 
         let mut closest_model: Option<usize> = None;
         let mut closest_intersection: Option<Vec3> = None;
@@ -342,8 +354,8 @@ impl Custom3d {
                 continue;
             }
 
-            if let Some(intersection) = model.ray_intersection(camera_pos, ray_direction) {
-                let distance = intersection.distance(camera_pos);
+            if let Some(intersection) = model.ray_intersection(ray_origin, ray_direction) {
+                let distance = intersection.distance(ray_origin);
                 if distance < closest_distance && distance.is_finite() {
                     closest_distance = distance;
                     closest_model = Some(model_idx);

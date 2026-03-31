@@ -1,4 +1,5 @@
 use crate::app::Custom3d;
+use crate::render::buffers::camera::CameraProjection;
 use crate::render::buffers::transform::Transform;
 use crate::render::model::Model;
 use crate::render::pipeline::SelectedPipeline;
@@ -38,6 +39,19 @@ impl Custom3d {
                     renderer.get_selected_pipeline_mut(),
                     SelectedPipeline::Textured,
                     "Textured",
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.label("Projection:");
+                ui.radio_value(
+                    self.get_camera_mut().projection_mode_mut(),
+                    CameraProjection::Perspective,
+                    "Perspective",
+                );
+                ui.radio_value(
+                    self.get_camera_mut().projection_mode_mut(),
+                    CameraProjection::Orthographic,
+                    "Orthographic",
                 );
             });
             let button = ui.button("Add model");
