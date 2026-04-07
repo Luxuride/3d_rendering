@@ -273,8 +273,11 @@ impl Custom3d {
             )
         };
 
-        self.camera
-            .frame_board_top_down_orthographic(chess_state.board_min, chess_state.board_max, 1.15);
+        self.camera.frame_board_top_down_orthographic(
+            chess_state.board_min,
+            chess_state.board_max,
+            1.15,
+        );
 
         self.set_selected_model(None);
         if let Ok(mut renderer) = self.get_renderer().write() {

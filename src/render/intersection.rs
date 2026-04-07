@@ -121,7 +121,8 @@ pub fn screen_to_world_ray(screen_pos: Vec2, viewport_size: Vec2, camera: &Camer
             let up = camera.get_up_vector();
             let forward = camera.get_forward_vector();
 
-            let origin = camera.get_position() + right * (ndc_x * half_width) + up * (ndc_y * half_height);
+            let origin =
+                camera.get_position() + right * (ndc_x * half_width) + up * (ndc_y * half_height);
             let direction = if forward.is_finite() {
                 forward
             } else {
