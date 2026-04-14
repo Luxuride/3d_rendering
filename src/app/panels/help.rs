@@ -18,6 +18,8 @@ impl Custom3d {
                 ui.label("Shift: Go fast");
                 ui.label("Q: FOV Up");
                 ui.label("E: FOV Down");
+                ui.label("Lukáš Vacek");
+                ui.label("PGRF2 2026");
             });
     }
 }
